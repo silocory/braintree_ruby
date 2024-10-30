@@ -1,5 +1,5 @@
 module Braintree
-  module Util # :nodoc:
+  module Util
     def self.extract_attribute_as_array(hash, attribute)
       raise UnexpectedError.new("Unprocessable entity due to an invalid request") if hash.nil?
       value = hash.has_key?(attribute) ? hash.delete(attribute) : []
@@ -191,18 +191,18 @@ module Braintree
     def self._get_invalid_keys(valid_keys, hash)
       flattened_valid_keys = _flatten_valid_keys(valid_keys)
       keys = _flatten_hash_keys(hash) - flattened_valid_keys
-      keys = _remove_wildcard_keys(flattened_valid_keys, keys)
+      _remove_wildcard_keys(flattened_valid_keys, keys)
     end
 
     module IdEquality
-      def ==(other) # :nodoc:
+      def ==(other)
         return false unless other.is_a?(self.class)
         id == other.id
       end
     end
 
     module TokenEquality
-      def ==(other) # :nodoc:
+      def ==(other)
         return false unless other.is_a?(self.class)
         token == other.token
       end

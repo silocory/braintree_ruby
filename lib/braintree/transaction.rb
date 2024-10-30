@@ -24,6 +24,7 @@ module Braintree
       AVSAndCVV    = "avs_and_cvv"
       CVV          = "cvv"
       Duplicate    = "duplicate"
+      ExcessiveRetry = "excessive_retry"
       Fraud        = "fraud"
       RiskThreshold = "risk_threshold"
       ThreeDSecure = "three_d_secure"
@@ -76,9 +77,9 @@ module Braintree
       All = constants.map { |c| const_get(c) }
     end
 
-    module Type # :nodoc:
-      Credit = "credit" # :nodoc:
-      Sale = "sale" # :nodoc:
+    module Type
+      Credit = "credit"
+      Sale = "sale"
 
       All = constants.map { |c| const_get(c) }
     end
@@ -90,6 +91,8 @@ module Braintree
       end
     end
 
+    attr_reader :ach_return_code
+    attr_reader :ach_return_responses
     attr_reader :acquirer_reference_number
     attr_reader :add_ons
     attr_reader :additional_processor_response          # The raw response from the processor.
@@ -109,6 +112,7 @@ module Braintree
     attr_reader :custom_fields
     attr_reader :customer_details
     attr_reader :cvv_response_code
+    attr_reader :debit_network
     attr_reader :descriptor
     attr_reader :disbursement_details
     attr_reader :discount_amount
@@ -117,6 +121,7 @@ module Braintree
     attr_reader :escrow_status
     attr_reader :facilitated_details
     attr_reader :facilitator_details
+    attr_reader :foreign_retailer
     attr_reader :gateway_rejection_reason
     attr_reader :google_pay_details
     attr_reader :graphql_id
@@ -125,35 +130,48 @@ module Braintree
     attr_reader :installments
     attr_reader :local_payment_details
     attr_reader :merchant_account_id
+    attr_reader :merchant_advice_code
+    attr_reader :merchant_advice_code_text
+    attr_reader :meta_checkout_card_details
+    attr_reader :meta_checkout_token_details
     attr_reader :network_response_code                  # Response code from the card network
     attr_reader :network_response_text                  # Response text from the card network
+    attr_reader :network_token_details
     attr_reader :network_transaction_id
     attr_reader :order_id
+    attr_reader :packages
     attr_reader :partial_settlement_transaction_ids
     attr_reader :payment_instrument_type
+    attr_reader :payment_receipt
     attr_reader :paypal_details
     attr_reader :paypal_here_details
     attr_reader :plan_id
-    attr_reader :processor_authorization_code           # Authorization code from the processor.
-    attr_reader :processor_response_code                # Response code from the processor.
-    attr_reader :processor_response_text                # Response text from the processor.
-    attr_reader :processor_response_type                # Response type from the processor.
-    attr_reader :processor_settlement_response_code     # Settlement response code from the processor.
-    attr_reader :processor_settlement_response_text     # Settlement response text from the processor.
+    attr_reader :processor_authorization_code
+    attr_reader :processor_response_code
+    attr_reader :processor_response_text
+    attr_reader :processor_response_type
+    attr_reader :processor_settlement_response_code
+    attr_reader :processor_settlement_response_text
     attr_reader :product_sku
     attr_reader :purchase_order_number
     attr_reader :recurring
     attr_reader :refund_ids
-    attr_reader :refunded_transaction_id
     attr_reader :refunded_installments
+    attr_reader :refunded_transaction_id
+    attr_reader :retried
+    attr_reader :retried_transaction_id                 # the primary/parent transaction id of any retried transaction
     attr_reader :retrieval_reference_number
+    attr_reader :retry_ids                              # all retried transactions ids for a primary transaction
     attr_reader :risk_data
     attr_reader :samsung_pay_card_details
     attr_reader :sca_exemption_requested
+    attr_reader :sepa_direct_debit_account_details
+    attr_reader :sepa_direct_debit_return_code
     attr_reader :service_fee_amount
     attr_reader :settlement_batch_id
     attr_reader :shipping_amount
     attr_reader :shipping_details
+    attr_reader :shipping_tax_amount
     attr_reader :ships_from_postal_code
     attr_reader :status                                 # See Transaction::Status
     attr_reader :status_history
@@ -162,7 +180,7 @@ module Braintree
     attr_reader :tax_amount
     attr_reader :tax_exempt
     attr_reader :three_d_secure_info
-    attr_reader :type                                   # Will either be "sale" or "credit"
+    attr_reader :type
     attr_reader :updated_at
     attr_reader :us_bank_account_details
     attr_reader :venmo_account_details
@@ -269,6 +287,14 @@ module Braintree
       return_object_or_raise(:transaction) { update_details(*args) }
     end
 
+    def self.package_tracking(*args)
+      Configuration.gateway.transaction.package_tracking(*args)
+    end
+
+    def self.package_tracking!(*args)
+      Configuration.gateway.transaction.package_tracking!(*args)
+    end
+
     def self.submit_for_partial_settlement(*args)
       Configuration.gateway.transaction.submit_for_partial_settlement(*args)
     end
@@ -285,46 +311,55 @@ module Braintree
       Configuration.gateway.transaction.void!(*args)
     end
 
-    def initialize(gateway, attributes) # :nodoc:
+    # NEXT_MAJOR_VERSION remove SamsungPayCardDetails
+    def initialize(gateway, attributes)
       @gateway = gateway
       set_instance_variables_from_hash(attributes)
+
       @amount = Util.to_big_decimal(amount)
-      @credit_card_details = CreditCardDetails.new(@credit_card)
-      @service_fee_amount = Util.to_big_decimal(service_fee_amount)
-      @subscription_details = SubscriptionDetails.new(@subscription)
-      @customer_details = CustomerDetails.new(@customer)
+      @apple_pay_details = ApplePayDetails.new(@apple_pay)
       @billing_details = AddressDetails.new(@billing)
-      @disbursement_details = DisbursementDetails.new(@disbursement_details)
-      @shipping_details = AddressDetails.new(@shipping)
-      @status_history = attributes[:status_history] ? attributes[:status_history].map { |s| StatusDetails.new(s) } : []
-      @tax_amount = Util.to_big_decimal(tax_amount)
+      @credit_card_details = CreditCardDetails.new(@credit_card)
+      @network_token_details = CreditCardDetails.new(@network_token)
+      @custom_fields = attributes[:custom_fields].is_a?(Hash) ? attributes[:custom_fields] : {}
+      @customer_details = CustomerDetails.new(@customer)
       @descriptor = Descriptor.new(@descriptor)
+      @disbursement_details = DisbursementDetails.new(@disbursement_details)
+      @google_pay_details = GooglePayDetails.new(@google_pay_card)
       @local_payment_details = LocalPaymentDetails.new(@local_payment)
+      @meta_checkout_card_details = MetaCheckoutCardDetails.new(attributes[:meta_checkout_card])
+      @meta_checkout_token_details = MetaCheckoutTokenDetails.new(attributes[:meta_checkout_token])
+      @payment_instrument_type = attributes[:payment_instrument_type]
+      @payment_receipt = PaymentReceipt.new(attributes[:payment_receipt]) if attributes[:payment_receipt]
       @paypal_details = PayPalDetails.new(@paypal)
       @paypal_here_details = PayPalHereDetails.new(@paypal_here)
-      @apple_pay_details = ApplePayDetails.new(@apple_pay)
-      @google_pay_details = GooglePayDetails.new(@google_pay_card)
+      @samsung_pay_card_details = SamsungPayCardDetails.new(attributes[:samsung_pay_card]) #Deprecated
+      @sca_exemption_requested = attributes[:sca_exemption_requested]
+      @sepa_direct_debit_account_details = SepaDirectDebitAccountDetails.new(@sepa_debit_account_detail)
+      @service_fee_amount = Util.to_big_decimal(service_fee_amount)
+      @packages = attributes[:shipments] ? attributes[:shipments].map { |pd| PackageDetails.new(pd) } : []
+      @shipping_details = AddressDetails.new(@shipping)
+      @status_history = attributes[:status_history] ? attributes[:status_history].map { |s| StatusDetails.new(s) } : []
+      @subscription_details = SubscriptionDetails.new(@subscription)
+      @tax_amount = Util.to_big_decimal(tax_amount)
       @venmo_account_details = VenmoAccountDetails.new(@venmo_account)
-      disputes.map! { |attrs| Dispute._new(attrs) } if disputes
-      @custom_fields = attributes[:custom_fields].is_a?(Hash) ? attributes[:custom_fields] : {}
-      add_ons.map! { |attrs| AddOn._new(attrs) } if add_ons
-      discounts.map! { |attrs| Discount._new(attrs) } if discounts
-      @payment_instrument_type = attributes[:payment_instrument_type]
-      @risk_data = RiskData.new(attributes[:risk_data]) if attributes[:risk_data]
+      @visa_checkout_card_details = VisaCheckoutCardDetails.new(attributes[:visa_checkout_card])
+
       @facilitated_details = FacilitatedDetails.new(attributes[:facilitated_details]) if attributes[:facilitated_details]
       @facilitator_details = FacilitatorDetails.new(attributes[:facilitator_details]) if attributes[:facilitator_details]
+      @risk_data = RiskData.new(attributes[:risk_data]) if attributes[:risk_data]
       @three_d_secure_info = ThreeDSecureInfo.new(attributes[:three_d_secure_info]) if attributes[:three_d_secure_info]
       @us_bank_account_details = UsBankAccountDetails.new(attributes[:us_bank_account]) if attributes[:us_bank_account]
-      @visa_checkout_card_details = VisaCheckoutCardDetails.new(attributes[:visa_checkout_card])
-      @samsung_pay_card_details = SamsungPayCardDetails.new(attributes[:samsung_pay_card])
-      @sca_exemption_requested = attributes[:sca_exemption_requested]
-      authorization_adjustments.map! { |attrs| AuthorizationAdjustment._new(attrs) } if authorization_adjustments
 
+      add_ons.map! { |attrs| AddOn._new(attrs) } if add_ons
+      authorization_adjustments.map! { |attrs| AuthorizationAdjustment._new(attrs) } if authorization_adjustments
+      discounts.map! { |attrs| Discount._new(attrs) } if discounts
+      disputes.map! { |attrs| Dispute._new(attrs) } if disputes
       installments.map! { |attrs| Installment.new(attrs) } if installments
       refunded_installments.map! { |attrs| Installment.new(attrs) } if refunded_installments
     end
 
-    def inspect # :nodoc:
+    def inspect
       first = [:id, :type, :amount, :status]
       order = first + (self.class._attributes - first)
       nice_attributes = order.map do |attr|
@@ -341,12 +376,10 @@ module Braintree
       @gateway.transaction_line_item.find_all(id)
     end
 
-    # Returns true if the transaction has been refunded. False otherwise.
     def refunded?
       !@refund_id.nil?
     end
 
-    # Returns true if the transaction has been disbursed. False otherwise.
     def disbursed?
       @disbursement_details.valid?
     end
@@ -355,6 +388,7 @@ module Braintree
     # vault_billing_address will return the associated Braintree::Address. Because the
     # vault billing address can be updated after the transaction was created, the attributes
     # on vault_billing_address may not match the attributes on billing_details.
+    # NEXT_MAJOR_VERSION these methods are not documented in the developer docs, remove
     def vault_billing_address
       return nil if billing_details.id.nil?
       @gateway.address.find(customer_details.id, billing_details.id)
@@ -364,6 +398,7 @@ module Braintree
     # vault_credit_card will return the associated Braintree::CreditCard. Because the
     # vault credit card can be updated after the transaction was created, the attributes
     # on vault_credit_card may not match the attributes on credit_card_details.
+    # NEXT_MAJOR_VERSION these methods are not documented in the developer docs, remove
     def vault_credit_card
       return nil if credit_card_details.token.nil?
       @gateway.credit_card.find(credit_card_details.token)
@@ -373,6 +408,7 @@ module Braintree
     # vault_customer will return the associated Braintree::Customer. Because the
     # vault customer can be updated after the transaction was created, the attributes
     # on vault_customer may not match the attributes on customer_details.
+    # NEXT_MAJOR_VERSION these methods are not documented in the developer docs, remove
     def vault_customer
       return nil if customer_details.id.nil?
       @gateway.customer.find(customer_details.id)
@@ -382,6 +418,7 @@ module Braintree
     # vault_shipping_address will return the associated Braintree::Address. Because the
     # vault shipping address can be updated after the transaction was created, the attributes
     # on vault_shipping_address may not match the attributes on shipping_details.
+    # NEXT_MAJOR_VERSION these methods are not documented in the developer docs, remove
     def vault_shipping_address
       return nil if shipping_details.id.nil?
       @gateway.address.find(customer_details.id, shipping_details.id)
@@ -393,12 +430,12 @@ module Braintree
 
     class << self
       protected :new
-      def _new(*args) # :nodoc:
+      def _new(*args)
         self.new(*args)
       end
     end
 
-    def self._attributes # :nodoc:
+    def self._attributes
       [:amount, :created_at, :credit_card_details, :customer_details, :id, :status, :subscription_details, :type, :updated_at, :processed_with_network_token?]
     end
   end

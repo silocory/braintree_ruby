@@ -1,6 +1,6 @@
 module Braintree
   class Transaction
-    class CreditCardDetails # :nodoc:
+    class CreditCardDetails
       include BaseModule
 
       attr_reader :account_type
@@ -64,8 +64,15 @@ module Braintree
         "#{bin}******#{last_4}"
       end
 
+      # NEXT_MAJOR_VERSION Remove this method
+      # The old venmo SDK class has been deprecated
       def venmo_sdk?
+        warn "[DEPRECATED] The Venmo SDK integration is Unsupported. Please update your integration to use Pay with Venmo instead."
         @venmo_sdk
+      end
+
+      def is_network_tokenized?
+        @is_network_tokenized
       end
     end
   end

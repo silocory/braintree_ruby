@@ -8,7 +8,7 @@ describe Braintree::Transaction, "search" do
         search.billing_first_name.is "thisnameisnotreal"
       end
 
-      collection.maximum_size.should == 0
+      expect(collection.maximum_size).to eq(0)
     end
 
     it "can search on text fields" do
@@ -109,14 +109,14 @@ describe Braintree::Transaction, "search" do
           search.id.is transaction.id
           search.send(criterion).is value
         end
-        collection.maximum_size.should == 1
-        collection.first.id.should == transaction.id
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(transaction.id)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is transaction.id
           search.send(criterion).is("invalid_attribute")
         end
-        collection.should be_empty
+        expect(collection).to be_empty
       end
 
       collection = Braintree::Transaction.search do |search|
@@ -126,27 +126,27 @@ describe Braintree::Transaction, "search" do
         end
       end
 
-      collection.maximum_size.should == 1
-      collection.first.id.should == transaction.id
+      expect(collection.maximum_size).to eq(1)
+      expect(collection.first.id).to eq(transaction.id)
     end
 
     it "searches on users" do
       transaction = Braintree::Transaction.sale!(
         :amount => Braintree::Test::TransactionAmounts::Authorize,
-        :payment_method_nonce => Braintree::Test::Nonce::PayPalFuturePayment,
+        :payment_method_nonce => Braintree::Test::Nonce::PayPalBillingAgreement,
       )
 
       collection = Braintree::Transaction.search do |search|
         search.user.is "integration_user_public_id"
       end
 
-      collection.any? { |t| t.id == transaction.id }.should == true
+      expect(collection.any? { |t| t.id == transaction.id }).to eq(true)
     end
 
     it "searches on paypal transactions" do
       transaction = Braintree::Transaction.sale!(
         :amount => Braintree::Test::TransactionAmounts::Authorize,
-        :payment_method_nonce => Braintree::Test::Nonce::PayPalFuturePayment,
+        :payment_method_nonce => Braintree::Test::Nonce::PayPalBillingAgreement,
       )
 
       paypal_details = transaction.paypal_details
@@ -157,8 +157,8 @@ describe Braintree::Transaction, "search" do
         search.paypal_payer_email.is paypal_details.payer_email
       end
 
-      collection.maximum_size.should == 1
-      collection.first.id.should == transaction.id
+      expect(collection.maximum_size).to eq(1)
+      expect(collection.first.id).to eq(transaction.id)
     end
 
     it "searches on store_id" do
@@ -170,8 +170,31 @@ describe Braintree::Transaction, "search" do
         search.store_ids.in store_id
       end
 
-      collection.maximum_size.should == 1
-      collection.first.id.should == transaction_id
+      expect(collection.maximum_size).to eq(1)
+      expect(collection.first.id).to eq(transaction_id)
+    end
+
+    it "searches on reason_code" do
+      transaction_id = "ach_txn_ret1"
+      reason_code = "R01"
+
+      collection = Braintree::Transaction.search do |search|
+        search.reason_code.in reason_code
+      end
+
+      expect(collection.maximum_size).to eq(1)
+      expect(collection.first.id).to eq(transaction_id)
+      expect(collection.first.ach_return_responses.first[:reason_code]).to eq("R01")
+    end
+
+    it "searches on reason_codes" do
+      reason_code = "any_reason_code"
+
+      collection = Braintree::Transaction.search do |search|
+        search.reason_code.is reason_code
+      end
+
+      expect(collection.maximum_size).to eq(2)
     end
 
     context "multiple value fields" do
@@ -189,21 +212,21 @@ describe Braintree::Transaction, "search" do
           search.created_using.is Braintree::Transaction::CreatedUsing::FullInformation
         end
 
-        collection.maximum_size.should == 1
+        expect(collection.maximum_size).to eq(1)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is transaction.id
           search.created_using.in Braintree::Transaction::CreatedUsing::FullInformation, Braintree::Transaction::CreatedUsing::Token
         end
 
-        collection.maximum_size.should == 1
+        expect(collection.maximum_size).to eq(1)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is transaction.id
           search.created_using.is Braintree::Transaction::CreatedUsing::Token
         end
 
-        collection.maximum_size.should == 0
+        expect(collection.maximum_size).to eq(0)
       end
 
       it "searches on credit_card_customer_location" do
@@ -220,21 +243,21 @@ describe Braintree::Transaction, "search" do
           search.credit_card_customer_location.is Braintree::CreditCard::CustomerLocation::US
         end
 
-        collection.maximum_size.should == 1
+        expect(collection.maximum_size).to eq(1)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is transaction.id
           search.credit_card_customer_location.in Braintree::CreditCard::CustomerLocation::US, Braintree::CreditCard::CustomerLocation::International
         end
 
-        collection.maximum_size.should == 1
+        expect(collection.maximum_size).to eq(1)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is transaction.id
           search.credit_card_customer_location.is Braintree::CreditCard::CustomerLocation::International
         end
 
-        collection.maximum_size.should == 0
+        expect(collection.maximum_size).to eq(0)
       end
 
       it "searches on merchant_account_id" do
@@ -251,21 +274,21 @@ describe Braintree::Transaction, "search" do
           search.merchant_account_id.is transaction.merchant_account_id
         end
 
-        collection.maximum_size.should == 1
+        expect(collection.maximum_size).to eq(1)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is transaction.id
           search.merchant_account_id.in transaction.merchant_account_id, "bogus_merchant_account_id"
         end
 
-        collection.maximum_size.should == 1
+        expect(collection.maximum_size).to eq(1)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is transaction.id
           search.merchant_account_id.is "bogus_merchant_account_id"
         end
 
-        collection.maximum_size.should == 0
+        expect(collection.maximum_size).to eq(0)
       end
 
       it "searches on credit_card_card_type" do
@@ -282,28 +305,28 @@ describe Braintree::Transaction, "search" do
           search.credit_card_card_type.is Braintree::CreditCard::CardType::Visa
         end
 
-        collection.maximum_size.should == 1
+        expect(collection.maximum_size).to eq(1)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is transaction.id
           search.credit_card_card_type.is transaction.credit_card_details.card_type
         end
 
-        collection.maximum_size.should == 1
+        expect(collection.maximum_size).to eq(1)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is transaction.id
           search.credit_card_card_type.in Braintree::CreditCard::CardType::Visa, Braintree::CreditCard::CardType::MasterCard
         end
 
-        collection.maximum_size.should == 1
+        expect(collection.maximum_size).to eq(1)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is transaction.id
           search.credit_card_card_type.is Braintree::CreditCard::CardType::MasterCard
         end
 
-        collection.maximum_size.should == 0
+        expect(collection.maximum_size).to eq(0)
       end
 
       it "searches for an Elo card" do
@@ -322,7 +345,7 @@ describe Braintree::Transaction, "search" do
           search.credit_card_card_type.is Braintree::CreditCard::CardType::Elo
         end
 
-        collection.maximum_size.should == 1
+        expect(collection.maximum_size).to eq(1)
       end
 
       it "searches by payment instrument type CreditCardDetail" do
@@ -339,8 +362,8 @@ describe Braintree::Transaction, "search" do
           search.payment_instrument_type.in ["CreditCardDetail"]
         end
 
-        collection.first.id.should == transaction.id
-        collection.first.payment_instrument_type.should ==Braintree::PaymentInstrumentType::CreditCard
+        expect(collection.first.id).to eq(transaction.id)
+        expect(collection.first.payment_instrument_type).to eq(Braintree::PaymentInstrumentType::CreditCard)
       end
 
       it "searches by payment instrument type PayPal" do
@@ -354,8 +377,8 @@ describe Braintree::Transaction, "search" do
           search.payment_instrument_type.in ["PayPalDetail"]
         end
 
-        collection.first.id.should == transaction.id
-        collection.first.payment_instrument_type.should == Braintree::PaymentInstrumentType::PayPalAccount
+        expect(collection.first.id).to eq(transaction.id)
+        expect(collection.first.payment_instrument_type).to eq(Braintree::PaymentInstrumentType::PayPalAccount)
       end
 
       it "searches by payment instrument type LocalPaymentDetail" do
@@ -369,8 +392,40 @@ describe Braintree::Transaction, "search" do
           search.payment_instrument_type.in ["LocalPaymentDetail"]
         end
 
-        collection.first.id.should == transaction.id
-        collection.first.payment_instrument_type.should == Braintree::PaymentInstrumentType::LocalPayment
+        expect(collection.first.id).to eq(transaction.id)
+        expect(collection.first.payment_instrument_type).to eq(Braintree::PaymentInstrumentType::LocalPayment)
+      end
+
+      it "searches by payment instrument type SepaDebitAccountDetail" do
+        transaction = Braintree::Transaction.sale!(
+          :amount => Braintree::Test::TransactionAmounts::Authorize,
+          :payment_method_nonce => Braintree::Test::Nonce::SepaDirectDebit,
+          :options => {:submit_for_settlement => true},
+        )
+
+        collection = Braintree::Transaction.search do |search|
+          search.id.is transaction.id
+          search.payment_instrument_type.in ["SEPADebitAccountDetail"]
+        end
+
+        expect(collection.first.id).to eq(transaction.id)
+        expect(collection.first.payment_instrument_type).to eq(Braintree::PaymentInstrumentType::SepaDirectDebitAccount)
+      end
+
+      it "searches by paypal_v2_order_id" do
+        transaction = Braintree::Transaction.sale!(
+          :amount => Braintree::Test::TransactionAmounts::Authorize,
+          :payment_method_nonce => Braintree::Test::Nonce::SepaDirectDebit,
+          :options => {:submit_for_settlement => true},
+        )
+
+        collection = Braintree::Transaction.search do |search|
+          search.id.is transaction.id
+          search.sepa_debit_paypal_v2_order_id.is transaction.sepa_direct_debit_account_details.paypal_v2_order_id
+        end
+
+        expect(collection.first.id).to eq(transaction.id)
+        expect(collection.first.payment_instrument_type).to eq(Braintree::PaymentInstrumentType::SepaDirectDebitAccount)
       end
 
       it "searches by payment instrument type ApplePay" do
@@ -384,8 +439,8 @@ describe Braintree::Transaction, "search" do
           search.payment_instrument_type.in ["ApplePayDetail"]
         end
 
-        collection.first.id.should == transaction.id
-        collection.first.payment_instrument_type.should == Braintree::PaymentInstrumentType::ApplePayCard
+        expect(collection.first.id).to eq(transaction.id)
+        expect(collection.first.payment_instrument_type).to eq(Braintree::PaymentInstrumentType::ApplePayCard)
       end
 
       it "searches on status" do
@@ -402,21 +457,32 @@ describe Braintree::Transaction, "search" do
           search.status.is Braintree::Transaction::Status::Authorized
         end
 
-        collection.maximum_size.should == 1
+        expect(collection.maximum_size).to eq(1)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is transaction.id
           search.status.in Braintree::Transaction::Status::Authorized, Braintree::Transaction::Status::ProcessorDeclined
         end
 
-        collection.maximum_size.should == 1
+        expect(collection.maximum_size).to eq(1)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is transaction.id
           search.status.is Braintree::Transaction::Status::ProcessorDeclined
         end
 
-        collection.maximum_size.should == 0
+        expect(collection.maximum_size).to eq(0)
+      end
+
+      it "searches for settlement_confirmed transaction" do
+        transaction_id = "settlement_confirmed_txn"
+
+        collection = Braintree::Transaction.search do |search|
+          search.id.is transaction_id
+        end
+
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(transaction_id)
       end
 
       it "finds expired authorizations by status" do
@@ -424,8 +490,8 @@ describe Braintree::Transaction, "search" do
           search.status.in Braintree::Transaction::Status::AuthorizationExpired
         end
 
-        collection.maximum_size.should > 0
-        collection.first.status.should == Braintree::Transaction::Status::AuthorizationExpired
+        expect(collection.maximum_size).to be > 0
+        expect(collection.first.status).to eq(Braintree::Transaction::Status::AuthorizationExpired)
       end
 
       it "searches on source" do
@@ -442,21 +508,21 @@ describe Braintree::Transaction, "search" do
           search.source.is Braintree::Transaction::Source::Api
         end
 
-        collection.maximum_size.should == 1
+        expect(collection.maximum_size).to eq(1)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is transaction.id
           search.source.in Braintree::Transaction::Source::Api, Braintree::Transaction::Source::ControlPanel
         end
 
-        collection.maximum_size.should == 1
+        expect(collection.maximum_size).to eq(1)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is transaction.id
           search.source.is Braintree::Transaction::Source::ControlPanel
         end
 
-        collection.maximum_size.should == 0
+        expect(collection.maximum_size).to eq(0)
       end
 
       it "searches on type" do
@@ -488,7 +554,7 @@ describe Braintree::Transaction, "search" do
           search.type.is Braintree::Transaction::Type::Credit
         end
 
-        collection.maximum_size.should == 2
+        expect(collection.maximum_size).to eq(2)
 
         collection = Braintree::Transaction.search do |search|
           search.credit_card_cardholder_name.is cardholder_name
@@ -496,8 +562,8 @@ describe Braintree::Transaction, "search" do
           search.refund.is true
         end
 
-        collection.maximum_size.should == 1
-        collection.first.id.should == refund_transaction.id
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(refund_transaction.id)
 
         collection = Braintree::Transaction.search do |search|
           search.credit_card_cardholder_name.is cardholder_name
@@ -505,8 +571,8 @@ describe Braintree::Transaction, "search" do
           search.refund.is false
         end
 
-        collection.maximum_size.should == 1
-        collection.first.id.should == credit_transaction.id
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(credit_transaction.id)
       end
 
       it "searches on store_ids" do
@@ -518,17 +584,73 @@ describe Braintree::Transaction, "search" do
           search.store_ids.in store_ids
         end
 
-        collection.maximum_size.should == 1
-        collection.first.id.should == transaction_id
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(transaction_id)
+      end
+
+      it "searches on reason_codes for 2 items" do
+        reason_code = ["R01", "R02"]
+
+        collection = Braintree::Transaction.search do |search|
+          search.reason_code.in reason_code
+        end
+
+        expect(collection.maximum_size).to eq(2)
+      end
+
+      it "searches on a reason_code" do
+        reason_code = ["R01"]
+        transaction_id = "ach_txn_ret1"
+
+        collection = Braintree::Transaction.search do |search|
+          search.reason_code.in reason_code
+        end
+
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(transaction_id)
+      end
+
+      xit "searches on debit_network" do
+        transaction = Braintree::Transaction.sale!(
+          :amount => Braintree::Test::TransactionAmounts::Authorize,
+          :merchant_account_id => SpecHelper::PinlessDebitMerchantAccountId,
+          :currency_iso_code => "USD",
+          :payment_method_nonce => Braintree::Test::Nonce::TransactablePinlessDebitVisa,
+          :options => {
+            :submit_for_settlement => true
+          },
+        )
+
+        collection = Braintree::Transaction.search do |search|
+          search.id.is transaction.id
+          search.credit_card_card_type.is Braintree::CreditCard::CardType::Visa
+        end
+
+        expect(collection.maximum_size).to be > 0
+
+        collection = Braintree::Transaction.search do |search|
+          search.id.is transaction.id
+          search.debit_network.in Braintree::CreditCard::DebitNetwork::All
+        end
+
+        expect(collection.maximum_size).to be > 0
       end
     end
 
     context "invalid search" do
       it "raises an exception on invalid transaction type" do
         expect do
-          collection = Braintree::Transaction.search do |search|
+          Braintree::Transaction.search do |search|
             search.customer_id.is "9171566"
             search.type.is "settled"
+          end
+        end.to raise_error(ArgumentError)
+      end
+
+      it "raises an exception on invalid debit network" do
+        expect do
+          Braintree::Transaction.search do |search|
+            search.debit_network.is "invalid_network"
           end
         end.to raise_error(ArgumentError)
       end
@@ -550,31 +672,31 @@ describe Braintree::Transaction, "search" do
             search.amount.between "500.00", "1500.00"
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
             search.amount >= "500.00"
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
             search.amount <= "1500.00"
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
             search.amount.between "500.00", "900.00"
           end
 
-          collection.maximum_size.should == 0
+          expect(collection.maximum_size).to eq(0)
         end
 
         it "can also take BigDecimal for amount" do
@@ -591,7 +713,7 @@ describe Braintree::Transaction, "search" do
             search.amount <= BigDecimal("1000.00")
           end
 
-          collection.maximum_size.should == 1
+          expect(collection.maximum_size).to eq(1)
         end
       end
 
@@ -606,7 +728,7 @@ describe Braintree::Transaction, "search" do
           )
 
           created_at = transaction.created_at
-          created_at.should be_utc
+          expect(created_at).to be_utc
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
@@ -616,24 +738,24 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
             search.created_at >= created_at - 1
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
             search.created_at <= created_at + 1
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
@@ -643,15 +765,15 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 0
+          expect(collection.maximum_size).to eq(0)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
             search.created_at.is created_at
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
         end
 
         it "searches on created_at in local time" do
@@ -673,24 +795,24 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
             search.created_at >= now - 60
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
             search.created_at <= now + 60
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
@@ -700,7 +822,7 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 0
+          expect(collection.maximum_size).to eq(0)
         end
 
         it "searches on created_at with dates" do
@@ -720,8 +842,26 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
+        end
+      end
+
+      context "ach return response created at" do
+        it "it finds records within date range of the custom field" do
+          date_search = Braintree::Transaction.search do |search|
+            search.ach_return_responses_created_at.between(DateTime.now - 1.0, DateTime.now + 1.0)
+          end
+
+          expect(date_search.maximum_size).to eq(2)
+        end
+
+        it "it does not find records not within date range of the custom field" do
+          neg_date_search = Braintree::Transaction.search do |search|
+           search.ach_return_responses_created_at.between(DateTime.now + 1.0, DateTime.now - 1.0)
+          end
+
+          expect(neg_date_search.maximum_size).to eq(0)
         end
       end
 
@@ -738,24 +878,24 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction_id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction_id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction_id
             search.disbursement_date >= disbursement_time - 1
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction_id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction_id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction_id
             search.disbursement_date <= disbursement_time + 1
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction_id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction_id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction_id
@@ -765,15 +905,15 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 0
+          expect(collection.maximum_size).to eq(0)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction_id
             search.disbursement_date.is disbursement_time
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction_id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction_id)
         end
 
         it "searches on disbursement_date in local time" do
@@ -788,24 +928,24 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction_id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction_id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction_id
             search.disbursement_date >= now - 60
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction_id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction_id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction_id
             search.disbursement_date <= now + 60
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction_id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction_id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction_id
@@ -815,7 +955,7 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 0
+          expect(collection.maximum_size).to eq(0)
         end
 
         it "searches on disbursement_date with date ranges" do
@@ -830,8 +970,8 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction_id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction_id)
         end
       end
 
@@ -871,32 +1011,32 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == @disputed_transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(@disputed_transaction.id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is @disputed_transaction.id
             search.dispute_date >= @disputed_time - 1
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == @disputed_transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(@disputed_transaction.id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is @disputed_transaction.id
             search.dispute_date <= @disputed_time + 1
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == @disputed_transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(@disputed_transaction.id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is @disputed_transaction.id
             search.dispute_date.is @disputed_time
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == @disputed_transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(@disputed_transaction.id)
         end
 
         it "searches on dispute_date in local time" do
@@ -910,23 +1050,23 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == @disputed_transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(@disputed_transaction.id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is @disputed_transaction.id
             search.dispute_date >= now - 60
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == @disputed_transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(@disputed_transaction.id)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is @disputed_transaction.id
             search.dispute_date <= now + 60
           end
 
-          collection.maximum_size.should == 1
+          expect(collection.maximum_size).to eq(1)
         end
 
         it "searches on dispute_date with date ranges" do
@@ -938,8 +1078,8 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == @disputed_transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(@disputed_transaction.id)
         end
       end
 
@@ -961,7 +1101,7 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 0
+          expect(collection.maximum_size).to eq(0)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
@@ -971,8 +1111,8 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
         end
 
         it "finds transactions failed in a given range" do
@@ -992,7 +1132,7 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 0
+          expect(collection.maximum_size).to eq(0)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
@@ -1002,8 +1142,8 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
         end
 
         it "finds expired authorizations in a given range" do
@@ -1014,7 +1154,7 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 0
+          expect(collection.maximum_size).to eq(0)
 
           collection = Braintree::Transaction.search do |search|
             search.authorization_expired_at.between(
@@ -1023,8 +1163,8 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should > 0
-          collection.first.status.should == Braintree::Transaction::Status::AuthorizationExpired
+          expect(collection.maximum_size).to be > 0
+          expect(collection.first.status).to eq(Braintree::Transaction::Status::AuthorizationExpired)
         end
 
         it "finds transactions gateway_rejected in a given range" do
@@ -1054,7 +1194,7 @@ describe Braintree::Transaction, "search" do
               )
             end
 
-            collection.maximum_size.should == 0
+            expect(collection.maximum_size).to eq(0)
 
             collection = Braintree::Transaction.search do |search|
               search.id.is transaction.id
@@ -1064,8 +1204,8 @@ describe Braintree::Transaction, "search" do
               )
             end
 
-            collection.maximum_size.should == 1
-            collection.first.id.should == transaction.id
+            expect(collection.maximum_size).to eq(1)
+            expect(collection.first.id).to eq(transaction.id)
           ensure
             Braintree::Configuration.merchant_id = old_merchant
             Braintree::Configuration.public_key = old_public_key
@@ -1090,7 +1230,7 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 0
+          expect(collection.maximum_size).to eq(0)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
@@ -1100,8 +1240,8 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
         end
 
         it "finds transactions settled in a given range" do
@@ -1126,7 +1266,7 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 0
+          expect(collection.maximum_size).to eq(0)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
@@ -1136,8 +1276,8 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
         end
 
         it "finds transactions submitted for settlement in a given range" do
@@ -1160,7 +1300,7 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 0
+          expect(collection.maximum_size).to eq(0)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
@@ -1170,8 +1310,8 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
         end
 
         it "finds transactions voided in a given range" do
@@ -1192,7 +1332,7 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 0
+          expect(collection.maximum_size).to eq(0)
 
           collection = Braintree::Transaction.search do |search|
             search.id.is transaction.id
@@ -1202,8 +1342,8 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should == 1
-          collection.first.id.should == transaction.id
+          expect(collection.maximum_size).to eq(1)
+          expect(collection.first.id).to eq(transaction.id)
         end
       end
 
@@ -1231,16 +1371,16 @@ describe Braintree::Transaction, "search" do
             )
           end
 
-          collection.maximum_size.should > 0
+          expect(collection.maximum_size).to be > 0
       end
     end
 
     it "returns multiple results" do
       collection = Braintree::Transaction.search
-      collection.maximum_size.should > 100
+      expect(collection.maximum_size).to be > 100
 
       transaction_ids = collection.map { |t| t.id }.uniq.compact
-      transaction_ids.size.should == collection.maximum_size
+      expect(transaction_ids.size).to eq(collection.maximum_size)
     end
 
     context "text node operations" do
@@ -1261,15 +1401,15 @@ describe Braintree::Transaction, "search" do
           search.credit_card_cardholder_name.is "Tom Smith"
         end
 
-        collection.maximum_size.should == 1
-        collection.first.id.should == @transaction.id
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(@transaction.id)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is @transaction.id
           search.credit_card_cardholder_name.is "Invalid"
         end
 
-        collection.maximum_size.should == 0
+        expect(collection.maximum_size).to eq(0)
       end
 
       it "is_not" do
@@ -1278,15 +1418,15 @@ describe Braintree::Transaction, "search" do
           search.credit_card_cardholder_name.is_not "Anybody Else"
         end
 
-        collection.maximum_size.should == 1
-        collection.first.id.should == @transaction.id
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(@transaction.id)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is @transaction.id
           search.credit_card_cardholder_name.is_not "Tom Smith"
         end
 
-        collection.maximum_size.should == 0
+        expect(collection.maximum_size).to eq(0)
       end
 
       it "ends_with" do
@@ -1295,15 +1435,15 @@ describe Braintree::Transaction, "search" do
           search.credit_card_cardholder_name.ends_with "m Smith"
         end
 
-        collection.maximum_size.should == 1
-        collection.first.id.should == @transaction.id
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(@transaction.id)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is @transaction.id
           search.credit_card_cardholder_name.ends_with "Tom S"
         end
 
-        collection.maximum_size.should == 0
+        expect(collection.maximum_size).to eq(0)
       end
 
       it "starts_with" do
@@ -1312,15 +1452,15 @@ describe Braintree::Transaction, "search" do
           search.credit_card_cardholder_name.starts_with "Tom S"
         end
 
-        collection.maximum_size.should == 1
-        collection.first.id.should == @transaction.id
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(@transaction.id)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is @transaction.id
           search.credit_card_cardholder_name.starts_with "m Smith"
         end
 
-        collection.maximum_size.should == 0
+        expect(collection.maximum_size).to eq(0)
       end
 
       it "contains" do
@@ -1329,26 +1469,53 @@ describe Braintree::Transaction, "search" do
           search.credit_card_cardholder_name.contains "m Sm"
         end
 
-        collection.maximum_size.should == 1
-        collection.first.id.should == @transaction.id
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(@transaction.id)
 
         collection = Braintree::Transaction.search do |search|
           search.id.is @transaction.id
           search.credit_card_cardholder_name.contains "Anybody Else"
         end
 
-        collection.maximum_size.should == 0
+        expect(collection.maximum_size).to eq(0)
       end
     end
 
     context "when the search times out" do
       it "raises a UnexpectedError" do
         expect {
-          collection = Braintree::Transaction.search do |search|
+          Braintree::Transaction.search do |search|
             search.amount.is(-10)
           end
         }.to raise_error(Braintree::UnexpectedError)
       end
+    end
+
+    it "searches by payment instrument type meta checkout" do
+      meta_checkout_card_transaction = Braintree::Transaction.sale!(
+        :amount => Braintree::Test::TransactionAmounts::Authorize,
+        :options => {
+          :submit_for_settlement => true
+        },
+        :payment_method_nonce => Braintree::Test::Nonce::MetaCheckoutCard,
+      )
+
+      meta_checkout_token_transaction = Braintree::Transaction.sale!(
+        :amount => Braintree::Test::TransactionAmounts::Authorize,
+        :options => {
+          :submit_for_settlement => true
+        },
+        :payment_method_nonce => Braintree::Test::Nonce::MetaCheckoutToken,
+      )
+
+      collection = Braintree::Transaction.search do |search|
+        search.payment_instrument_type.in ["MetaCheckout"]
+      end
+
+      collection.maximum_size.should == 2
+      txn_ids = collection.map(&:id)
+      expect(txn_ids).to include(meta_checkout_card_transaction.id)
+      expect(txn_ids).to include(meta_checkout_token_transaction.id)
     end
   end
 

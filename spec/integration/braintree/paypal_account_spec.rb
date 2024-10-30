@@ -15,17 +15,19 @@ describe Braintree::PayPalAccount do
         :payment_method_nonce => nonce,
         :customer_id => customer.id,
       )
-      result.should be_success
+      expect(result).to be_success
 
       paypal_account = Braintree::PayPalAccount.find(payment_method_token)
-      paypal_account.should be_a(Braintree::PayPalAccount)
-      paypal_account.token.should == payment_method_token
-      paypal_account.email.should == "jane.doe@example.com"
-      paypal_account.image_url.should_not be_nil
-      paypal_account.created_at.should_not be_nil
-      paypal_account.updated_at.should_not be_nil
-      paypal_account.customer_id.should == customer.id
-      paypal_account.revoked_at.should be_nil
+      expect(paypal_account).to be_a(Braintree::PayPalAccount)
+      expect(paypal_account.token).to eq(payment_method_token)
+      expect(paypal_account.email).to eq("jane.doe@example.com")
+      expect(paypal_account.image_url).not_to be_nil
+      expect(paypal_account.created_at).not_to be_nil
+      expect(paypal_account.updated_at).not_to be_nil
+      expect(paypal_account.customer_id).to eq(customer.id)
+      expect(paypal_account.funding_source_description).to be_nil
+      expect(paypal_account.edit_paypal_vault_id).to be_nil
+      expect(paypal_account.revoked_at).to be_nil
     end
 
     it "returns a PayPalAccount with a billing agreement id" do
@@ -37,10 +39,10 @@ describe Braintree::PayPalAccount do
         :customer_id => customer.id,
         :token => payment_method_token,
       )
-      result.should be_success
+      expect(result).to be_success
 
       paypal_account = Braintree::PayPalAccount.find(payment_method_token)
-      paypal_account.billing_agreement_id.should_not be_nil
+      expect(paypal_account.billing_agreement_id).not_to be_nil
     end
 
     it "raises if the payment method token is not found" do
@@ -51,7 +53,7 @@ describe Braintree::PayPalAccount do
 
     it "does not return a different payment method type" do
       customer = Braintree::Customer.create!
-      result = Braintree::CreditCard.create(
+      Braintree::CreditCard.create(
         :customer_id => customer.id,
         :number => Braintree::Test::CreditCardNumbers::Visa,
         :expiration_date => "05/2009",
@@ -76,7 +78,7 @@ describe Braintree::PayPalAccount do
         :payment_method_nonce => nonce,
         :customer_id => customer.id,
       )
-      result.should be_success
+      expect(result).to be_success
 
       token = result.payment_method.token
 
@@ -91,7 +93,7 @@ describe Braintree::PayPalAccount do
       ).subscription
 
       paypal_account = Braintree::PayPalAccount.find(token)
-      paypal_account.subscriptions.map(&:id).sort.should == [subscription1.id, subscription2.id].sort
+      expect(paypal_account.subscriptions.map(&:id).sort).to eq([subscription1.id, subscription2.id].sort)
     end
   end
 
@@ -108,9 +110,9 @@ describe Braintree::PayPalAccount do
         },
       )
 
-      result.should be_success
-      result.paypal_account.billing_agreement_id.should == "some_billing_agreement_id"
-      result.paypal_account.email.should == "some@example.com"
+      expect(result).to be_success
+      expect(result.paypal_account.billing_agreement_id).to eq("some_billing_agreement_id")
+      expect(result.paypal_account.email).to eq("some@example.com")
     end
 
     it "throws an error if customer id is not specified" do
@@ -119,8 +121,8 @@ describe Braintree::PayPalAccount do
         :email => "some@example.com",
       )
 
-      result.success?.should == false
-      result.errors.first.code.should == "82905"
+      expect(result.success?).to eq(false)
+      expect(result.errors.first.code).to eq("82905")
     end
 
     it "throws an error if billing agreement id is not specified" do
@@ -130,8 +132,8 @@ describe Braintree::PayPalAccount do
         :email => "some@example.com",
       )
 
-      result.success?.should == false
-      result.errors.map(&:code).should include("82902")
+      expect(result.success?).to eq(false)
+      expect(result.errors.map(&:code)).to include("82902")
     end
   end
 
@@ -143,7 +145,7 @@ describe Braintree::PayPalAccount do
         :billing_agreement_id => "first_billing_agreement_id",
         :email => "first@example.com",
       )
-      create_result.success?.should == true
+      expect(create_result.success?).to eq(true)
 
       update_result = Braintree::PayPalAccount.update(
         create_result.paypal_account.token,
@@ -151,11 +153,11 @@ describe Braintree::PayPalAccount do
         :email => "second@example.com",
       )
 
-      update_result.success?.should == true
+      expect(update_result.success?).to eq(true)
       paypal_account = update_result.paypal_account
 
-      paypal_account.billing_agreement_id.should == "second_billing_agreement_id"
-      paypal_account.email.should == "second@example.com"
+      expect(paypal_account.billing_agreement_id).to eq("second_billing_agreement_id")
+      expect(paypal_account.email).to eq("second@example.com")
     end
 
     it "updates a paypal account's token" do
@@ -171,13 +173,13 @@ describe Braintree::PayPalAccount do
       )
 
       updated_token = "UPDATED_TOKEN-" + rand(36**3).to_s(36)
-      updated_result = Braintree::PayPalAccount.update(
+      Braintree::PayPalAccount.update(
         original_token,
         :token => updated_token,
       )
 
       updated_paypal_account = Braintree::PayPalAccount.find(updated_token)
-      updated_paypal_account.email.should == original_result.payment_method.email
+      expect(updated_paypal_account.email).to eq(original_result.payment_method.email)
 
       expect do
         Braintree::PayPalAccount.find(original_token)
@@ -192,7 +194,7 @@ describe Braintree::PayPalAccount do
         :expiration_date => "05/2009",
         :options => {:make_default => true},
       )
-      result.should be_success
+      expect(result).to be_success
 
       nonce = nonce_for_paypal_account(:consent_code => "consent-code")
       original_token = Braintree::PaymentMethod.create(
@@ -200,13 +202,13 @@ describe Braintree::PayPalAccount do
         :customer_id => customer.id,
       ).payment_method.token
 
-      updated_result = Braintree::PayPalAccount.update(
+      Braintree::PayPalAccount.update(
         original_token,
         :options => {:make_default => true},
       )
 
       updated_paypal_account = Braintree::PayPalAccount.find(original_token)
-      updated_paypal_account.should be_default
+      expect(updated_paypal_account).to be_default
     end
 
     it "returns an error if a token for account is used to attempt an update" do
@@ -218,7 +220,7 @@ describe Braintree::PayPalAccount do
         :consent_code => "consent-code",
         :token => first_token,
       )
-      first_result = Braintree::PaymentMethod.create(
+      Braintree::PaymentMethod.create(
         :payment_method_nonce => first_nonce,
         :customer_id => customer.id,
       )
@@ -227,7 +229,7 @@ describe Braintree::PayPalAccount do
         :consent_code => "consent-code",
         :token => second_token,
       )
-      second_result = Braintree::PaymentMethod.create(
+      Braintree::PaymentMethod.create(
         :payment_method_nonce => second_nonce,
         :customer_id => customer.id,
       )
@@ -237,8 +239,8 @@ describe Braintree::PayPalAccount do
         :token => second_token,
       )
 
-      updated_result.should_not be_success
-      updated_result.errors.first.code.should == "92906"
+      expect(updated_result).not_to be_success
+      expect(updated_result.errors.first.code).to eq("92906")
     end
   end
 
@@ -256,7 +258,7 @@ describe Braintree::PayPalAccount do
         :customer_id => customer.id,
       )
 
-      result = Braintree::PayPalAccount.delete(token)
+      Braintree::PayPalAccount.delete(token)
 
       expect do
         Braintree::PayPalAccount.find(token)
@@ -267,31 +269,31 @@ describe Braintree::PayPalAccount do
   context "self.sale" do
     it "creates a transaction using a paypal account and returns a result object" do
       customer = Braintree::Customer.create!(
-        :payment_method_nonce => Braintree::Test::Nonce::PayPalFuturePayment,
+        :payment_method_nonce => Braintree::Test::Nonce::PayPalBillingAgreement,
       )
 
       result = Braintree::PayPalAccount.sale(customer.paypal_accounts[0].token, :amount => "100.00")
 
-      result.success?.should == true
-      result.transaction.amount.should == BigDecimal("100.00")
-      result.transaction.type.should == "sale"
-      result.transaction.customer_details.id.should == customer.id
-      result.transaction.paypal_details.token.should == customer.paypal_accounts[0].token
+      expect(result.success?).to eq(true)
+      expect(result.transaction.amount).to eq(BigDecimal("100.00"))
+      expect(result.transaction.type).to eq("sale")
+      expect(result.transaction.customer_details.id).to eq(customer.id)
+      expect(result.transaction.paypal_details.token).to eq(customer.paypal_accounts[0].token)
     end
   end
 
   context "self.sale!" do
     it "creates a transaction using a paypal account and returns a transaction" do
       customer = Braintree::Customer.create!(
-        :payment_method_nonce => Braintree::Test::Nonce::PayPalFuturePayment,
+        :payment_method_nonce => Braintree::Test::Nonce::PayPalBillingAgreement,
       )
 
       transaction = Braintree::PayPalAccount.sale!(customer.paypal_accounts[0].token, :amount => "100.00")
 
-      transaction.amount.should == BigDecimal("100.00")
-      transaction.type.should == "sale"
-      transaction.customer_details.id.should == customer.id
-      transaction.paypal_details.token.should == customer.paypal_accounts[0].token
+      expect(transaction.amount).to eq(BigDecimal("100.00"))
+      expect(transaction.type).to eq("sale")
+      expect(transaction.customer_details.id).to eq(customer.id)
+      expect(transaction.paypal_details.token).to eq(customer.paypal_accounts[0].token)
     end
   end
 end

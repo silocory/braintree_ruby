@@ -15,7 +15,7 @@ END
 [Braintree]   <last-name>Doe</last-name>
 [Braintree] </customer>
 END
-      Braintree::Http.new(:config)._format_and_sanitize_body_for_log(input_xml).should == expected_xml
+      expect(Braintree::Http.new(:config)._format_and_sanitize_body_for_log(input_xml)).to eq(expected_xml)
     end
 
     it "sanitizes credit card number and cvv" do
@@ -25,6 +25,7 @@ END
   <last-name>Doe</last-name>
   <number>1234560000001234</number>
   <cvv>123</cvv>
+  <encrypted-card-data>8F34DFB312DC79C24FD5320622F3E11682D79E6B0C0FD881</encrypted-card-data>
 </customer>
       END
 
@@ -34,9 +35,10 @@ END
 [Braintree]   <last-name>Doe</last-name>
 [Braintree]   <number>123456******1234</number>
 [Braintree]   <cvv>***</cvv>
+[Braintree]   <encrypted-card-data>***</encrypted-card-data>
 [Braintree] </customer>
 END
-      Braintree::Http.new(:config)._format_and_sanitize_body_for_log(input_xml).should == expected_xml
+      expect(Braintree::Http.new(:config)._format_and_sanitize_body_for_log(input_xml)).to eq(expected_xml)
     end
 
     it "sanitizes credit card number and cvv with newlines" do
@@ -57,7 +59,7 @@ END
 [Braintree]   <cvv>***</cvv>
 [Braintree] </customer>
 END
-      Braintree::Http.new(:config)._format_and_sanitize_body_for_log(input_xml).should == expected_xml
+      expect(Braintree::Http.new(:config)._format_and_sanitize_body_for_log(input_xml)).to eq(expected_xml)
     end
   end
 
@@ -78,7 +80,7 @@ END
         :start => nil,
       )
 
-      Net::HTTP.should_receive(:new).with(nil, nil, "localhost", 8080, "user", "test").and_return(net_http_instance)
+      expect(Net::HTTP).to receive(:new).with(nil, nil, "localhost", 8080, "user", "test").and_return(net_http_instance)
 
       http._http_do("GET", "/plans")
     end
@@ -97,7 +99,7 @@ END
         :start => nil,
       )
 
-      Net::HTTP.should_receive(:new).with(nil, nil, "localhost", 8080, nil, nil).and_return(net_http_instance)
+      expect(Net::HTTP).to receive(:new).with(nil, nil, "localhost", 8080, nil, nil).and_return(net_http_instance)
 
       http._http_do("GET", "/plans")
     end
@@ -112,14 +114,14 @@ END
         :start => nil,
       )
 
-      Net::HTTP.should_receive(:new).with(nil, nil).and_return(net_http_instance)
+      expect(Net::HTTP).to receive(:new).with(nil, nil).and_return(net_http_instance)
 
       http._http_do("GET", "/plans")
     end
   end
 
   describe "_compose_headers" do
-    before (:each) do
+    before(:each) do
       config = Braintree::Configuration.new
       @http = Braintree::Http.new(config)
     end
@@ -183,13 +185,13 @@ END
 
   describe "_build_query_string" do
     it "returns an empty string for empty query params" do
-      Braintree::Http.new(:config)._build_query_string({}).should == ""
+      expect(Braintree::Http.new(:config)._build_query_string({})).to eq("")
     end
 
     it "returns a proper query string for non-nested hashes" do
       query_params = {:one => 1, :two => 2}
 
-      Braintree::Http.new(:config)._build_query_string(query_params).should =~ /^\?(one=1&two=2|two=2&one=1)$/
+      expect(Braintree::Http.new(:config)._build_query_string(query_params)).to match(/^\?(one=1&two=2|two=2&one=1)$/)
     end
 
     it "raises ArgumentError for nested hashes" do

@@ -15,24 +15,27 @@ describe Braintree::Address do
         :locality => "Chicago",
         :region => "Illinois",
         :phone_number => "5551231234",
+        :international_phone => {:country_code => "1", :national_number => "3121234567"},
         :postal_code => "60622",
         :country_name => "United States of America",
       )
-      result.success?.should == true
-      result.address.customer_id.should == customer.id
-      result.address.first_name.should == "Ben"
-      result.address.last_name.should == "Moore"
-      result.address.company.should == "Moore Co."
-      result.address.street_address.should == "1811 E Main St"
-      result.address.extended_address.should == "Suite 200"
-      result.address.locality.should == "Chicago"
-      result.address.region.should == "Illinois"
-      result.address.phone_number.should == "5551231234"
-      result.address.postal_code.should == "60622"
-      result.address.country_name.should == "United States of America"
-      result.address.country_code_alpha2.should == "US"
-      result.address.country_code_alpha3.should == "USA"
-      result.address.country_code_numeric.should == "840"
+      expect(result.success?).to eq(true)
+      expect(result.address.customer_id).to eq(customer.id)
+      expect(result.address.first_name).to eq("Ben")
+      expect(result.address.last_name).to eq("Moore")
+      expect(result.address.company).to eq("Moore Co.")
+      expect(result.address.street_address).to eq("1811 E Main St")
+      expect(result.address.extended_address).to eq("Suite 200")
+      expect(result.address.locality).to eq("Chicago")
+      expect(result.address.region).to eq("Illinois")
+      expect(result.address.phone_number).to eq("5551231234")
+      expect(result.address.international_phone[:country_code]).to eq("1")
+      expect(result.address.international_phone[:national_number]).to eq("3121234567")
+      expect(result.address.postal_code).to eq("60622")
+      expect(result.address.country_name).to eq("United States of America")
+      expect(result.address.country_code_alpha2).to eq("US")
+      expect(result.address.country_code_alpha3).to eq("USA")
+      expect(result.address.country_code_numeric).to eq("840")
     end
 
     it "accepts country_codes" do
@@ -43,11 +46,11 @@ describe Braintree::Address do
         :country_code_alpha3 => "ASM",
         :country_code_numeric => "16",
       )
-      result.success?.should == true
-      result.address.country_name.should == "American Samoa"
-      result.address.country_code_alpha2.should == "AS"
-      result.address.country_code_alpha3.should == "ASM"
-      result.address.country_code_numeric.should == "016"
+      expect(result.success?).to eq(true)
+      expect(result.address.country_name).to eq("American Samoa")
+      expect(result.address.country_code_alpha2).to eq("AS")
+      expect(result.address.country_code_alpha3).to eq("ASM")
+      expect(result.address.country_code_numeric).to eq("016")
     end
 
     it "accepts utf-8 country names" do
@@ -56,8 +59,8 @@ describe Braintree::Address do
         :customer_id => customer.id,
         :country_name => "Åland",
       )
-      result.success?.should == true
-      result.address.country_name.should == "Åland"
+      expect(result.success?).to eq(true)
+      expect(result.address.country_name).to eq("Åland")
     end
 
     it "returns an error response given inconsistent country codes" do
@@ -67,8 +70,8 @@ describe Braintree::Address do
         :country_code_alpha2 => "AS",
         :country_code_alpha3 => "USA",
       )
-      result.success?.should == false
-      result.errors.for(:address).on(:base).map { |e| e.code }.should include(Braintree::ErrorCodes::Address::InconsistentCountry)
+      expect(result.success?).to eq(false)
+      expect(result.errors.for(:address).on(:base).map { |e| e.code }).to include(Braintree::ErrorCodes::Address::InconsistentCountry)
     end
 
     it "returns an error response given an invalid country_code_alpha2" do
@@ -77,8 +80,8 @@ describe Braintree::Address do
         :customer_id => customer.id,
         :country_code_alpha2 => "zz",
       )
-      result.success?.should == false
-      result.errors.for(:address).on(:country_code_alpha2).map { |e| e.code }.should include(Braintree::ErrorCodes::Address::CountryCodeAlpha2IsNotAccepted)
+      expect(result.success?).to eq(false)
+      expect(result.errors.for(:address).on(:country_code_alpha2).map { |e| e.code }).to include(Braintree::ErrorCodes::Address::CountryCodeAlpha2IsNotAccepted)
     end
 
     it "returns an error response given an invalid country_code_alpha3" do
@@ -87,8 +90,8 @@ describe Braintree::Address do
         :customer_id => customer.id,
         :country_code_alpha3 => "zzz",
       )
-      result.success?.should == false
-      result.errors.for(:address).on(:country_code_alpha3).map { |e| e.code }.should include(Braintree::ErrorCodes::Address::CountryCodeAlpha3IsNotAccepted)
+      expect(result.success?).to eq(false)
+      expect(result.errors.for(:address).on(:country_code_alpha3).map { |e| e.code }).to include(Braintree::ErrorCodes::Address::CountryCodeAlpha3IsNotAccepted)
     end
 
     it "returns an error response given an invalid country_code_numeric" do
@@ -97,8 +100,8 @@ describe Braintree::Address do
         :customer_id => customer.id,
         :country_code_numeric => "zz",
       )
-      result.success?.should == false
-      result.errors.for(:address).on(:country_code_numeric).map { |e| e.code }.should include(Braintree::ErrorCodes::Address::CountryCodeNumericIsNotAccepted)
+      expect(result.success?).to eq(false)
+      expect(result.errors.for(:address).on(:country_code_numeric).map { |e| e.code }).to include(Braintree::ErrorCodes::Address::CountryCodeNumericIsNotAccepted)
     end
 
     it "returns an error response if invalid" do
@@ -107,8 +110,8 @@ describe Braintree::Address do
         :customer_id => customer.id,
         :country_name => "United States of Invalid",
       )
-      result.success?.should == false
-      result.errors.for(:address).on(:country_name)[0].message.should == "Country name is not an accepted country."
+      expect(result.success?).to eq(false)
+      expect(result.errors.for(:address).on(:country_name)[0].message).to eq("Country name is not an accepted country.")
     end
 
     it "allows -, _, A-Z, a-z, and 0-9 in customer_id without raising an ArgumentError" do
@@ -137,14 +140,14 @@ describe Braintree::Address do
         :postal_code => "60623",
         :country_name => "United States of America",
       )
-      address.customer_id.should == customer.id
-      address.street_address.should == "1812 E Main St"
-      address.extended_address.should == "Suite 201"
-      address.locality.should == "Bartlett"
-      address.region.should == "IL"
-      address.phone_number.should == "5551231234"
-      address.postal_code.should == "60623"
-      address.country_name.should == "United States of America"
+      expect(address.customer_id).to eq(customer.id)
+      expect(address.street_address).to eq("1812 E Main St")
+      expect(address.extended_address).to eq("Suite 201")
+      expect(address.locality).to eq("Bartlett")
+      expect(address.region).to eq("IL")
+      expect(address.phone_number).to eq("5551231234")
+      expect(address.postal_code).to eq("60623")
+      expect(address.country_name).to eq("United States of America")
     end
 
     it "raises a ValidationsFailed if invalid" do
@@ -162,7 +165,7 @@ describe Braintree::Address do
     it "deletes the address given a customer id and an address id" do
       customer = Braintree::Customer.create!(:last_name => "Wilson")
       address = Braintree::Address.create!(:customer_id => customer.id, :street_address => "123 E Main St")
-      Braintree::Address.delete(customer.id, address.id).success?.should == true
+      expect(Braintree::Address.delete(customer.id, address.id).success?).to eq(true)
       expect do
         Braintree::Address.find(customer.id, address.id)
       end.to raise_error(Braintree::NotFoundError)
@@ -171,7 +174,7 @@ describe Braintree::Address do
     it "deletes the address given a customer and an address id" do
       customer = Braintree::Customer.create!(:last_name => "Wilson")
       address = Braintree::Address.create!(:customer_id => customer.id, :street_address => "123 E Main St")
-      Braintree::Address.delete(customer, address.id).success?.should == true
+      expect(Braintree::Address.delete(customer, address.id).success?).to eq(true)
       expect do
         Braintree::Address.find(customer.id, address.id)
       end.to raise_error(Braintree::NotFoundError)
@@ -182,13 +185,13 @@ describe Braintree::Address do
     it "finds the address given a customer and an address id" do
       customer = Braintree::Customer.create!(:last_name => "Wilson")
       address = Braintree::Address.create!(:customer_id => customer.id, :street_address => "123 E Main St")
-      Braintree::Address.find(customer, address.id).should == address
+      expect(Braintree::Address.find(customer, address.id)).to eq(address)
     end
 
     it "finds the address given a customer id and an address id" do
       customer = Braintree::Customer.create!(:last_name => "Wilson")
       address = Braintree::Address.create!(:customer_id => customer.id, :street_address => "123 E Main St")
-      Braintree::Address.find(customer.id, address.id).should == address
+      expect(Braintree::Address.find(customer.id, address.id)).to eq(address)
     end
 
     it "raises a NotFoundError if it cannot be found because of customer id" do
@@ -203,7 +206,7 @@ describe Braintree::Address do
 
     it "raises a NotFoundError if it cannot be found because of address id" do
       customer = Braintree::Customer.create!(:last_name => "Wilson")
-      address = Braintree::Address.create!(:customer_id => customer.id, :street_address => "123 E Main St")
+      Braintree::Address.create!(:customer_id => customer.id, :street_address => "123 E Main St")
       expect do
         Braintree::Address.find(customer, "invalid")
       end.to raise_error(
@@ -215,7 +218,7 @@ describe Braintree::Address do
   describe "self.update" do
     it "raises NotFoundError if the address can't be found" do
       customer = Braintree::Customer.create!(:last_name => "Wilson")
-      address = Braintree::Address.create!(:customer_id => customer.id, :street_address => "123 E Main St")
+      Braintree::Address.create!(:customer_id => customer.id, :street_address => "123 E Main St")
       expect do
         Braintree::Address.update(customer.id, "bad-id", {})
       end.to raise_error(Braintree::NotFoundError)
@@ -241,17 +244,20 @@ describe Braintree::Address do
         :region => "Illinois",
         :postal_code => "60621",
         :country_name => "United States of America",
+        :international_phone => {:country_code => "1", :national_number => "3121234567"},
       )
-      result.success?.should == true
-      result.address.street_address.should == "123 E New St"
-      result.address.extended_address.should == "New Suite 3"
-      result.address.locality.should == "Chicago"
-      result.address.region.should == "Illinois"
-      result.address.postal_code.should == "60621"
-      result.address.country_name.should == "United States of America"
-      result.address.country_code_alpha2.should == "US"
-      result.address.country_code_alpha3.should == "USA"
-      result.address.country_code_numeric.should == "840"
+      expect(result.success?).to eq(true)
+      expect(result.address.street_address).to eq("123 E New St")
+      expect(result.address.extended_address).to eq("New Suite 3")
+      expect(result.address.locality).to eq("Chicago")
+      expect(result.address.region).to eq("Illinois")
+      expect(result.address.postal_code).to eq("60621")
+      expect(result.address.country_name).to eq("United States of America")
+      expect(result.address.country_code_alpha2).to eq("US")
+      expect(result.address.country_code_alpha3).to eq("USA")
+      expect(result.address.country_code_numeric).to eq("840")
+      expect(result.address.international_phone[:country_code]).to eq("1")
+      expect(result.address.international_phone[:national_number]).to eq("3121234567")
     end
 
     it "accepts country_codes" do
@@ -266,11 +272,11 @@ describe Braintree::Address do
         :country_name => "Azerbaijan",
       )
 
-      result.success?.should == true
-      result.address.country_name.should == "Azerbaijan"
-      result.address.country_code_alpha2.should == "AZ"
-      result.address.country_code_alpha3.should == "AZE"
-      result.address.country_code_numeric.should == "031"
+      expect(result.success?).to eq(true)
+      expect(result.address.country_name).to eq("Azerbaijan")
+      expect(result.address.country_code_alpha2).to eq("AZ")
+      expect(result.address.country_code_alpha3).to eq("AZE")
+      expect(result.address.country_code_numeric).to eq("031")
     end
 
     it "returns an error response if invalid" do
@@ -285,15 +291,15 @@ describe Braintree::Address do
         :street_address => "123 E New St",
         :country_name => "United States of Invalid",
       )
-      result.success?.should == false
-      result.errors.for(:address).on(:country_name)[0].message.should == "Country name is not an accepted country."
+      expect(result.success?).to eq(false)
+      expect(result.errors.for(:address).on(:country_name)[0].message).to eq("Country name is not an accepted country.")
     end
   end
 
   describe "self.update!" do
     it "raises NotFoundError if the address can't be found" do
       customer = Braintree::Customer.create!(:last_name => "Wilson")
-      address = Braintree::Address.create!(:customer_id => customer.id, :street_address => "123 E Main St")
+      Braintree::Address.create!(:customer_id => customer.id, :street_address => "123 E Main St")
       expect do
         Braintree::Address.update!(customer.id, "bad-id", {})
       end.to raise_error(Braintree::NotFoundError)
@@ -320,13 +326,13 @@ describe Braintree::Address do
         :postal_code => "60621",
         :country_name => "United States of America",
       )
-      updated_address.should == address
-      updated_address.street_address.should == "123 E New St"
-      updated_address.extended_address.should == "New Suite 3"
-      updated_address.locality.should == "Chicago"
-      updated_address.region.should == "Illinois"
-      updated_address.postal_code.should == "60621"
-      updated_address.country_name.should == "United States of America"
+      expect(updated_address).to eq(address)
+      expect(updated_address.street_address).to eq("123 E New St")
+      expect(updated_address.extended_address).to eq("New Suite 3")
+      expect(updated_address.locality).to eq("Chicago")
+      expect(updated_address.region).to eq("Illinois")
+      expect(updated_address.postal_code).to eq("60621")
+      expect(updated_address.country_name).to eq("United States of America")
     end
 
     it "raises a ValidationsFailed invalid" do
@@ -352,7 +358,7 @@ describe Braintree::Address do
       customer = Braintree::Customer.create!(:last_name => "Wilson")
       address = Braintree::Address.create!(:customer_id => customer.id, :street_address => "123 E Main St")
       result = Braintree::Address.delete(customer.id, address.id)
-      result.success?.should == true
+      expect(result.success?).to eq(true)
       expect do
         Braintree::Address.find(customer.id, address.id)
       end.to raise_error(Braintree::NotFoundError)

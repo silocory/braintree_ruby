@@ -1,12 +1,13 @@
 module Braintree
   class Transaction
-    class UsBankAccountDetails # :nodoc:
+    class UsBankAccountDetails
       include BaseModule
 
       attr_reader :account_holder_name
       attr_reader :account_type
       attr_reader :ach_mandate
       attr_reader :bank_name
+      attr_reader :global_id
       attr_reader :image_url
       attr_reader :last_4
       attr_reader :routing_number

@@ -75,6 +75,7 @@ module Braintree
       CvvIsRequired = "81706"
       CvvVerificationFailed = "81736"
       DuplicateCardExists = "81724"
+      DuplicateCardExistsForCustomer = "81763"
       ExpirationDateConflict = "91708"
       ExpirationDateIsInvalid = "81710"
       ExpirationDateIsRequired = "81709"
@@ -83,6 +84,8 @@ module Braintree
       ExpirationYearIsInvalid = "81713"
       InvalidParamsForCreditCardUpdate = "91745"
       InvalidVenmoSDKPaymentMethodCode = "91727"
+      LimitExceededforDuplicatePaymentMethodCheckForCustomer = "81764"
+      NetworkTokenizationAttributeCryptogramIsRequired = "81762"
       NumberIsInvalid = "81715"
       NumberIsProhibited = "81750"
       NumberIsRequired = "81714"
@@ -184,6 +187,10 @@ module Braintree
       KindIsInvalid = "84901"
     end
 
+    module GooglePayCard
+      AndroidPayCardsAreNotAccepted = "83708"
+    end
+
     module PayPalAccount
       AuthExpired = "92911"
       CannotHaveBothAccessTokenAndConsentCode = "82903"
@@ -201,6 +208,12 @@ module Braintree
       PaymentMethodNonceLocked = "92909"
       PaymentMethodNonceUnknown = "92908"
       TokenIsInUse = "92906"
+    end
+
+    module SepaDirectDebitAccount
+      SepaDebitAccountPaymentMethodMandateTypeIsNotSupported = "87115"
+      SepaDebitAccountPaymentMethodCustomerIdIsInvalid = "87116"
+      SepaDebitAccountPaymentMethodCustomerIdIsRequired = "87117"
     end
 
     module Subscription
@@ -312,6 +325,7 @@ module Braintree
       DiscountAmountCannotBeNegative = "915160"
       DiscountAmountFormatIsInvalid = "915159"
       DiscountAmountIsTooLarge = "915161"
+      ExchangeRateQuoteIdTooLong = "915229"
       FailedAuthAdjustmentAllowRetry = "95603"
       FailedAuthAdjustmentHardDecline = "95602"
       FinalAuthSubmitForSettlementForDifferentAmount = "95601"
@@ -553,6 +567,10 @@ module Braintree
       UnitTaxAmountCannotBeNegative = "95826"
       UnitTaxAmountFormatIsInvalid = "95824"
       UnitTaxAmountIsTooLarge = "95825"
+      UPCCodeIsMissing = "95830"
+      UPCCodeIsTooLong = "95831"
+      UPCTypeIsMissing = "95832"
+      UPCTypeIsInvalid = "95833"
     end
 
     module Merchant
@@ -696,9 +714,12 @@ module Braintree
     module ClientToken
       CustomerDoesNotExist = "92804"
       FailOnDuplicatePaymentMethodRequiresCustomerId = "92803"
+      FailOnDuplicatePaymentMethodForCustomerRequiresCustomerId = "92805"
+      InvalidDomainFormat = "92011"
       MakeDefaultRequiresCustomerId = "92801"
       MerchantAccountDoesNotExist = "92807"
       ProxyMerchantDoesNotExist = "92805"
+      TooManyDomains = "92810"
       UnsupportedVersion = "92806"
       VerifyCardRequiresCustomerId = "92802"
     end

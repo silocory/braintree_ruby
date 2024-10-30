@@ -46,11 +46,41 @@ module Braintree
 
     def self._create_signature
       [
-         {:options => [:amount, :merchant_account_id, :account_type]},
-         {:credit_card => [
-           :cardholder_name, :cvv, :expiration_date, :expiration_month, :expiration_year,
-           :number, {:billing_address => AddressGateway._shared_signature}
-         ]}
+        {:credit_card => [
+          {:billing_address => AddressGateway._shared_signature},
+          :cardholder_name,
+          :cvv,
+          :expiration_date,
+          :expiration_month,
+          :expiration_year,
+          :number,
+        ]},
+        {:external_vault => [
+          :previous_network_transaction_id,
+          :status,
+        ]},
+        :intended_transaction_source,
+        {:options => [
+          :account_type,
+          :amount,
+          :merchant_account_id,
+        ]},
+        :payment_method_nonce,
+        {:risk_data => [
+          :customer_browser,
+          :customer_ip,
+        ]},
+        :three_d_secure_authentication_id,
+        {:three_d_secure_pass_thru => [
+          :authentication_response,
+          :cavv,
+          :cavv_algorithm,
+          :directory_response,
+          :ds_transaction_id,
+          :eci_flag,
+          :three_d_secure_version,
+          :xid,
+        ]},
       ]
     end
   end

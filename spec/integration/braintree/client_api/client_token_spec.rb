@@ -17,7 +17,35 @@ describe Braintree::ClientToken do
 
       response = http.get_payment_methods
 
-      response.code.should == "200"
+      expect(response.code).to eq("200")
+    end
+
+    describe "domains" do
+      it "allows a domain to be specified" do
+        client_token_string = Braintree::ClientToken.generate(:domains => ["example.com"])
+        client_token = decode_client_token(client_token_string)
+        authorization_fingerprint = Base64.decode64(client_token["authorizationFingerprint"])
+        expect(authorization_fingerprint.include? "example.com").to eq(true)
+      end
+
+      it "raises ClientTokenTooManyDomains on too many domains" do
+        expect do
+          Braintree::ClientToken.generate(
+            :domains => ["example1.com",
+              "example2.com",
+              "example3.com",
+              "example4.com",
+              "example5.com",
+              "example6.com"
+            ])
+        end.to raise_error(ArgumentError, "Cannot specify more than 5 client token domains")
+      end
+
+      it "raises ClientTokenInvalidDomainFormat on invalid format" do
+        expect do
+          Braintree::ClientToken.generate(:domains => ["example"])
+        end.to raise_error(ArgumentError, "Client token domains must be valid domain names (RFC 1035), e.g. example.com")
+      end
     end
 
     it "raises ArgumentError on invalid parameters (422)" do
@@ -28,17 +56,15 @@ describe Braintree::ClientToken do
 
     describe "version" do
       it "allows a client token version to be specified" do
-        config = Braintree::Configuration.instantiate
         client_token_string = Braintree::ClientToken.generate(:version => 1)
         client_token = JSON.parse(client_token_string)
-        client_token["version"].should == 1
+        expect(client_token["version"]).to eq(1)
       end
 
       it "defaults to 2" do
-        config = Braintree::Configuration.instantiate
         client_token_string = Braintree::ClientToken.generate
         client_token = decode_client_token(client_token_string)
-        client_token["version"].should == 2
+        expect(client_token["version"]).to eq(2)
       end
     end
 
@@ -68,7 +94,7 @@ describe Braintree::ClientToken do
         },
       )
 
-      response.code.should == "422"
+      expect(response.code).to eq("422")
     end
 
     it "can pass make_default" do
@@ -98,7 +124,7 @@ describe Braintree::ClientToken do
         },
       )
 
-      response.code.should == "201"
+      expect(response.code).to eq("201")
 
       response = http.add_payment_method(
         :credit_card => {
@@ -108,57 +134,248 @@ describe Braintree::ClientToken do
         },
       )
 
-      response.code.should == "201"
+      expect(response.code).to eq("201")
 
       customer = Braintree::Customer.find(customer_id)
-      customer.credit_cards.select { |c| c.bin == "400551" }[0].should be_default
+      expect(customer.credit_cards.select { |c| c.bin == "400551" }[0]).to be_default
     end
 
-    it "can pass fail_on_duplicate_payment_method" do
-      config = Braintree::Configuration.instantiate
-      result = Braintree::Customer.create
-      customer_id = result.customer.id
-      raw_client_token = Braintree::ClientToken.generate(
-        :customer_id => customer_id,
-      )
-      client_token = decode_client_token(raw_client_token)
+    context "fail on duplicate payment methods check" do
+      context "card exists for a different customer" do
+        before(:each) do
+          config = Braintree::Configuration.instantiate
+          result = Braintree::Customer.create
+          customer_id = result.customer.id
+          raw_client_token = Braintree::ClientToken.generate(
+            :customer_id => customer_id,
+          )
+          client_token = decode_client_token(raw_client_token)
 
-      http = ClientApiHttp.new(
-        config,
-        :authorization_fingerprint => client_token["authorizationFingerprint"],
-        :shared_customer_identifier => "fake_identifier",
-        :shared_customer_identifier_type => "testing",
-      )
+          http = ClientApiHttp.new(
+            config,
+            :authorization_fingerprint => client_token["authorizationFingerprint"],
+            :shared_customer_identifier => "fake_identifier",
+            :shared_customer_identifier_type => "testing",
+          )
 
-      response = http.add_payment_method(
-        :credit_card => {
-          :number => "4111111111111111",
-          :expiration_month => "11",
-          :expiration_year => "2099"
-        },
-      )
+          response = http.add_payment_method(
+            :credit_card => {
+              :number => "4111111111111111",
+              :expiration_month => "11",
+              :expiration_year => "2099"
+            },
+          )
+          expect(response.code).to eq("201")
+        end
 
-      response.code.should == "201"
+        it "does not create when fail_on_duplicate_payment_method = true and fail_on_duplicate_payment_method_for_customer = false" do
+          result = Braintree::Customer.create
+          second_raw_client_token = Braintree::ClientToken.generate(
+            :customer_id => result.customer_id,
+            :options => {
+              :fail_on_duplicate_payment_method => true,
+              :fail_on_duplicate_payment_method_for_customer => false
+            },
+          )
+          second_client_token = decode_client_token(second_raw_client_token)
 
-      second_raw_client_token = Braintree::ClientToken.generate(
-        :customer_id => customer_id,
-        :options => {
-          :fail_on_duplicate_payment_method => true
-        },
-      )
-      second_client_token = decode_client_token(second_raw_client_token)
+          http.fingerprint = second_client_token["authorizationFingerprint"]
 
-      http.fingerprint = second_client_token["authorizationFingerprint"]
+          response = http.add_payment_method(
+            :credit_card => {
+              :number => "4111111111111111",
+              :expiration_month => "11",
+              :expiration_year => "2099"
+            },
+          )
+          expect(response.code).to eq("201")
+        end
 
-      response = http.add_payment_method(
-        :credit_card => {
-          :number => "4111111111111111",
-          :expiration_month => "11",
-          :expiration_year => "2099"
-        },
-      )
+        it "creates when fail_on_duplicate_payment_method = false and fail_on_duplicate_payment_method_for_customer = true" do
+          result = Braintree::Customer.create
+          second_raw_client_token = Braintree::ClientToken.generate(
+            :customer_id => result.customer_id,
+            :options => {
+              :fail_on_duplicate_payment_method => true,
+              :fail_on_duplicate_payment_method_for_customer => false
+            },
+          )
+          second_client_token = decode_client_token(second_raw_client_token)
 
-      response.code.should == "422"
+          http.fingerprint = second_client_token["authorizationFingerprint"]
+
+          response = http.add_payment_method(
+            :credit_card => {
+              :number => "4111111111111111",
+              :expiration_month => "11",
+              :expiration_year => "2099"
+            },
+          )
+          expect(response.code).to eq("201")
+        end
+
+        it "does not create fail_on_duplicate_payment_method = true and fail_on_duplicate_payment_method_for_customer = true" do
+          result = Braintree::Customer.create
+          second_raw_client_token = Braintree::ClientToken.generate(
+            :customer_id => result.customer_id,
+            :options => {
+              :fail_on_duplicate_payment_method => true,
+              :fail_on_duplicate_payment_method_for_customer => true
+            },
+          )
+          second_client_token = decode_client_token(second_raw_client_token)
+
+          http.fingerprint = second_client_token["authorizationFingerprint"]
+
+          response = http.add_payment_method(
+            :credit_card => {
+              :number => "4111111111111111",
+              :expiration_month => "11",
+              :expiration_year => "2099"
+            },
+          )
+          expect(response.code).to eq("422")
+        end
+
+        it "creates when fail_on_duplicate_payment_method = false and fail_on_duplicate_payment_method_for_customer = false" do
+          result = Braintree::Customer.create
+          second_raw_client_token = Braintree::ClientToken.generate(
+            :customer_id => result.customer_id,
+            :options => {
+              :fail_on_duplicate_payment_method => false,
+              :fail_on_duplicate_payment_method_for_customer => false
+            },
+          )
+          second_client_token = decode_client_token(second_raw_client_token)
+
+          http.fingerprint = second_client_token["authorizationFingerprint"]
+
+          response = http.add_payment_method(
+            :credit_card => {
+              :number => "4111111111111111",
+              :expiration_month => "11",
+              :expiration_year => "2099"
+            },
+          )
+          expect(response.code).to eq("201")
+        end
+      end
+
+      context "card exists for a same customer" do
+        before(:each) do
+          config = Braintree::Configuration.instantiate
+          result = Braintree::Customer.create
+          let(:customer_id) { result.customer.id }
+          raw_client_token = Braintree::ClientToken.generate(
+            :customer_id => customer_id,
+          )
+          client_token = decode_client_token(raw_client_token)
+
+          http = ClientApiHttp.new(
+            config,
+            :authorization_fingerprint => client_token["authorizationFingerprint"],
+            :shared_customer_identifier => "fake_identifier",
+            :shared_customer_identifier_type => "testing",
+          )
+
+          response = http.add_payment_method(
+            :credit_card => {
+              :number => "4111111111111111",
+              :expiration_month => "11",
+              :expiration_year => "2099"
+            },
+          )
+          expect(response.code).to eq("201")
+        end
+
+        it "creates when fail_on_duplicate_payment_method = true and fail_on_duplicate_payment_method_for_customer = false for same customer" do
+          second_raw_client_token = Braintree::ClientToken.generate(
+            :customer_id => customer_id,
+            :options => {
+              :fail_on_duplicate_payment_method => true,
+              :fail_on_duplicate_payment_method_for_customer => false
+            },
+          )
+          second_client_token = decode_client_token(second_raw_client_token)
+
+          http.fingerprint = second_client_token["authorizationFingerprint"]
+
+          response = http.add_payment_method(
+            :credit_card => {
+              :number => "4111111111111111",
+              :expiration_month => "11",
+              :expiration_year => "2099"
+            },
+          )
+          expect(response.code).to eq("201")
+        end
+
+        it "does not create when fail_on_duplicate_payment_method = false and fail_on_duplicate_payment_method_for_customer = true for same customer" do
+          second_raw_client_token = Braintree::ClientToken.generate(
+            :customer_id => customer_id,
+            :options => {
+              :fail_on_duplicate_payment_method => false,
+              :fail_on_duplicate_payment_method_for_customer => true
+            },
+          )
+          second_client_token = decode_client_token(second_raw_client_token)
+
+          http.fingerprint = second_client_token["authorizationFingerprint"]
+
+          response = http.add_payment_method(
+            :credit_card => {
+              :number => "4111111111111111",
+              :expiration_month => "11",
+              :expiration_year => "2099"
+            },
+          )
+          expect(response.code).to eq("422")
+        end
+
+        it "does not create when fail_on_duplicate_payment_method = true and fail_on_duplicate_payment_method_for_customer = true for same customer" do
+          second_raw_client_token = Braintree::ClientToken.generate(
+            :customer_id => customer_id,
+            :options => {
+              :fail_on_duplicate_payment_method => true,
+              :fail_on_duplicate_payment_method_for_customer => false
+            },
+          )
+          second_client_token = decode_client_token(second_raw_client_token)
+
+          http.fingerprint = second_client_token["authorizationFingerprint"]
+
+          response = http.add_payment_method(
+            :credit_card => {
+              :number => "4111111111111111",
+              :expiration_month => "11",
+              :expiration_year => "2099"
+            },
+          )
+          expect(response.code).to eq("422")
+        end
+
+        it "creates when fail_on_duplicate_payment_method = false and fail_on_duplicate_payment_method_for_customer = false for same customer" do
+          second_raw_client_token = Braintree::ClientToken.generate(
+            :customer_id => customer_id,
+            :options => {
+              :fail_on_duplicate_payment_method => false,
+              :fail_on_duplicate_payment_method_for_customer => false
+            },
+          )
+          second_client_token = decode_client_token(second_raw_client_token)
+
+          http.fingerprint = second_client_token["authorizationFingerprint"]
+
+          response = http.add_payment_method(
+            :credit_card => {
+              :number => "4111111111111111",
+              :expiration_month => "11",
+              :expiration_year => "2099"
+            },
+          )
+          expect(response.code).to eq("201")
+        end
+      end
     end
 
     it "can pass merchant_account_id" do
@@ -169,7 +386,7 @@ describe Braintree::ClientToken do
       )
       client_token = decode_client_token(raw_client_token)
 
-      client_token["merchantAccountId"].should == merchant_account_id
+      expect(client_token["merchantAccountId"]).to eq(merchant_account_id)
     end
 
     context "paypal" do
@@ -178,11 +395,11 @@ describe Braintree::ClientToken do
           raw_client_token = Braintree::ClientToken.generate
           client_token = decode_client_token(raw_client_token)
 
-          client_token["paypal"]["displayName"].should == "merchant who has paypal and sepa enabled"
-          client_token["paypal"]["clientId"].should match(/.+/)
-          client_token["paypal"]["privacyUrl"].should match("http://www.example.com/privacy_policy")
-          client_token["paypal"]["userAgreementUrl"].should match("http://www.example.com/user_agreement")
-          client_token["paypal"]["baseUrl"].should_not be_nil
+          expect(client_token["paypal"]["displayName"]).to eq("merchant who has paypal and sepa enabled")
+          expect(client_token["paypal"]["clientId"]).to match(/.+/)
+          expect(client_token["paypal"]["privacyUrl"]).to match("http://www.example.com/privacy_policy")
+          expect(client_token["paypal"]["userAgreementUrl"]).to match("http://www.example.com/user_agreement")
+          expect(client_token["paypal"]["baseUrl"]).not_to be_nil
         end
       end
     end

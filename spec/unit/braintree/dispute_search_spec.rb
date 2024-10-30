@@ -5,14 +5,14 @@ describe Braintree::DisputeSearch do
     search = Braintree::DisputeSearch.new
     search.id.is "dispute1"
     search.id.is "dispute2"
-    search.to_hash.should == {:id => {:is => "dispute2"}}
+    expect(search.to_hash).to eq({:id => {:is => "dispute2"}})
   end
 
   it "overrides previous 'in' with new 'in' for the same field" do
     search = Braintree::DisputeSearch.new
     search.status.in Braintree::Dispute::Status::Open
     search.status.in Braintree::Dispute::Status::Won
-    search.to_hash.should == {:status => [Braintree::Dispute::Status::Won]}
+    expect(search.to_hash).to eq({:status => [Braintree::Dispute::Status::Won]})
   end
 
   [
@@ -41,10 +41,13 @@ describe Braintree::DisputeSearch do
   end
 
   [
+    # NEXT_MAJOR_VERSION Remove this assertion when chargeback_protection_level is removed from the SDK
     :chargeback_protection_level,
+    :protection_level,
     :kind,
     :reason,
     :status,
+    :pre_dispute_program,
   ].each do |field|
     it "raises if provided an unknown #{field} value" do
       search = Braintree::DisputeSearch.new

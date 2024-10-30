@@ -33,19 +33,19 @@ _The Ruby core development community has released [End-of-Life branches](https:/
 
 ## Versions
 
-Braintree employs a deprecation policy for our SDKs. For more information on the statuses of an SDK check our [developer docs](https://developers.braintreepayments.com/reference/general/server-sdk-deprecation-policy). [Minimum supported versions](https://developers.braintreepayments.com/reference/general/best-practices/ruby#server-sdk-versions) are also available in our developer docs.
+Braintree employs a deprecation policy for our SDKs. For more information on the statuses of an SDK check our [developer docs](https://developer.paypal.com/braintree/docs/reference/general/server-sdk-deprecation-policy). [Minimum supported versions](https://developer.paypal.com/braintree/docs/reference/general/best-practices/ruby#server-sdk-versions) are also available in our developer docs.
 
 | Major version number | Status      | Released      | Deprecated   | Unsupported  |
 | -------------------- | ----------- | ------------- | ------------ | ------------ |
 | 4.x.x                | Active      | May 2021      | TBA          | TBA          |
-| 3.x.x                | Inactive    | October 2020  | May 2023     | May 2024     |
-| 2.x.x                | Inactive    | April 2010    | October 2022 | October 2023 |
+| 3.x.x                | Deprecated  | October 2020  | May 2023     | May 2024     |
+| 2.x.x                | Deprecated  | April 2010    | October 2022 | October 2023 |
 
 ## Documentation
 
-* [Official documentation](https://developers.braintreepayments.com/start/hello-server/ruby)
+* [Official documentation](https://developer.paypal.com/braintree/docs/start/hello-server/ruby)
 
-Updating from an Inactive, Deprecated, or Unsupported version of this SDK? Check our [Migration Guide](https://developers.braintreepayments.com/reference/general/server-sdk-migration-guide/ruby) for tips.
+Updating from an Inactive, Deprecated, or Unsupported version of this SDK? Check our [Migration Guide](https://developer.paypal.com/braintree/docs/reference/general/server-sdk-migration-guide/ruby) for tips.
 
 ## Quick Start Example
 

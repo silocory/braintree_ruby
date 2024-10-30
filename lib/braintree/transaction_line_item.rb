@@ -1,21 +1,24 @@
 module Braintree
   class TransactionLineItem
     include BaseModule
-    attr_reader :quantity
-    attr_reader :name
+    attr_reader :commodity_code
     attr_reader :description
-    attr_reader :kind
-    attr_reader :unit_amount
-    attr_reader :unit_tax_amount
-    attr_reader :unit_of_measure
     attr_reader :discount_amount
+    attr_reader :image_url
+    attr_reader :kind
+    attr_reader :name
+    attr_reader :product_code
+    attr_reader :quantity
     attr_reader :tax_amount
     attr_reader :total_amount
-    attr_reader :product_code
-    attr_reader :commodity_code
+    attr_reader :unit_amount
+    attr_reader :unit_of_measure
+    attr_reader :unit_tax_amount
+    attr_reader :upc_code
+    attr_reader :upc_type
     attr_reader :url
 
-    def initialize(gateway, attributes) # :nodoc:
+    def initialize(gateway, attributes)
       @gateway = gateway
       set_instance_variables_from_hash(attributes)
       @quantity = Util.to_big_decimal(quantity)
@@ -28,7 +31,7 @@ module Braintree
 
     class << self
       protected :new
-      def _new(*args) # :nodoc:
+      def _new(*args)
         self.new(*args)
       end
     end

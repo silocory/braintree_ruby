@@ -54,11 +54,23 @@ unless defined?(INTEGRATION_SPEC_HELPER_LOADED)
     end
   end
 
+  def with_chargeback_protection_merchant(&block)
+    with_other_merchant("fraud_protection_effortless_chargeback_protection_merchant_id", "effortless_chargeback_protection_public_key", "effortless_chargeback_protection_private_key") do
+      block.call
+    end
+  end
+
   def with_altpay_merchant(&block)
     with_other_merchant("altpay_merchant", "altpay_merchant_public_key", "altpay_merchant_private_key", &block)
   end
 
   def random_payment_method_token
     "payment-method-token-#{SecureRandom.hex(6)}"
+  end
+
+  def with_duplicate_checking_merchant(&block)
+    with_other_merchant("dup_checking_integration_merchant_id", "dup_checking_integration_public_key", "dup_checking_integration_private_key") do
+      block.call
+    end
   end
 end

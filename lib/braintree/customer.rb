@@ -15,10 +15,12 @@ module Braintree
     attr_reader :google_pay_cards
     attr_reader :graphql_id
     attr_reader :id
+    attr_reader :international_phone
     attr_reader :last_name
     attr_reader :paypal_accounts
     attr_reader :phone
     attr_reader :samsung_pay_cards
+    attr_reader :sepa_direct_debit_accounts
     attr_reader :tax_identifiers
     attr_reader :updated_at
     attr_reader :us_bank_accounts
@@ -66,7 +68,6 @@ module Braintree
       Configuration.gateway.customer.search(&block)
     end
 
-    # Returns a ResourceCollection of transactions for the customer with the given +customer_id+.
     def self.transactions(*args)
       Configuration.gateway.customer.transactions(*args)
     end
@@ -79,7 +80,8 @@ module Braintree
       Configuration.gateway.customer.update!(*args)
     end
 
-    def initialize(gateway, attributes) # :nodoc:
+    # NEXT_MAJOR_VERSION remove samsung_pay_cards
+    def initialize(gateway, attributes)
       @gateway = gateway
       set_instance_variables_from_hash(attributes)
       @credit_cards = (@credit_cards || []).map { |pm| CreditCard._new gateway, pm }
@@ -89,7 +91,8 @@ module Braintree
       @venmo_accounts = (@venmo_accounts || []).map { |pm| VenmoAccount._new gateway, pm }
       @us_bank_accounts = (@us_bank_accounts || []).map { |pm| UsBankAccount._new gateway, pm }
       @visa_checkout_cards = (@visa_checkout_cards|| []).map { |pm| VisaCheckoutCard._new gateway, pm }
-      @samsung_pay_cards = (@samsung_pay_cards|| []).map { |pm| SamsungPayCard._new gateway, pm }
+      @sepa_direct_debit_accounts = (@sepa_debit_accounts || []).map { |pm| SepaDirectDebitAccount._new gateway, pm }
+      @samsung_pay_cards = (@samsung_pay_cards|| []).map { |pm| SamsungPayCard._new gateway, pm } # Deprecated
       @addresses = (@addresses || []).map { |addr| Address._new gateway, addr }
       @tax_identifiers = (@tax_identifiers || []).map { |addr| TaxIdentifier._new gateway, addr }
       @custom_fields = attributes[:custom_fields].is_a?(Hash) ? attributes[:custom_fields] : {}
@@ -103,7 +106,6 @@ module Braintree
       return_object_or_raise(:transaction) { credit(transaction_attributes) }
     end
 
-    # Returns the customer's default payment method.
     def default_payment_method
       payment_methods.find { |payment_instrument| payment_instrument.default? }
     end
@@ -112,7 +114,6 @@ module Braintree
       @gateway.customer.delete(id)
     end
 
-    # Returns the customer's payment methods
     def payment_methods
       @credit_cards +
         @paypal_accounts +
@@ -121,10 +122,11 @@ module Braintree
         @venmo_accounts +
         @us_bank_accounts +
         @visa_checkout_cards +
-        @samsung_pay_cards
+        @samsung_pay_cards +
+        @sepa_direct_debit_accounts
     end
 
-    def inspect # :nodoc:
+    def inspect
       first = [:id]
       last = [:addresses, :credit_cards, :paypal_accounts, :tax_identifiers]
       order = first + (self.class._attributes - first - last) + last
@@ -134,7 +136,6 @@ module Braintree
       "#<#{self.class} #{nice_attributes.join(', ')}>"
     end
 
-    # Returns a ResourceCollection of transactions for the customer.
     def transactions(options = {})
       @gateway.customer.transactions(id, options)
     end
@@ -143,18 +144,18 @@ module Braintree
       protected :new
     end
 
-    def self._new(*args) # :nodoc:
+    def self._new(*args)
       self.new(*args)
     end
 
-    def self._attributes # :nodoc:
+    def self._attributes
       [
-        :addresses, :company, :credit_cards, :email, :fax, :first_name, :id, :last_name, :phone, :website,
-        :created_at, :updated_at, :tax_identifiers
+        :addresses, :company, :credit_cards, :email, :fax, :first_name, :id, :international_phone,
+        :last_name, :phone, :website, :created_at, :updated_at, :tax_identifiers
       ]
     end
 
-    def self._now_timestamp # :nodoc:
+    def self._now_timestamp
       Time.now.to_i
     end
   end

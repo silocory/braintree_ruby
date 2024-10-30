@@ -1,15 +1,24 @@
 module Braintree
   class GooglePayCard
-    include BaseModule # :nodoc:
+    include BaseModule
 
     attr_reader :bin
+    attr_reader :commercial
+    attr_reader :country_of_issuance
     attr_reader :created_at
     attr_reader :customer_id
+    attr_reader :debit
     attr_reader :default
+    attr_reader :durbin_regulated
     attr_reader :expiration_month
     attr_reader :expiration_year
     attr_reader :google_transaction_id
+    attr_reader :healthcare
     attr_reader :image_url
+    attr_reader :issuing_bank
+    attr_reader :payroll
+    attr_reader :prepaid
+    attr_reader :product_id
     attr_reader :source_card_last_4
     attr_reader :source_card_type
     attr_reader :source_description
@@ -19,7 +28,7 @@ module Braintree
     attr_reader :virtual_card_last_4
     attr_reader :virtual_card_type
 
-    def initialize(gateway, attributes) # :nodoc:
+    def initialize(gateway, attributes)
       @gateway = gateway
       set_instance_variables_from_hash(attributes)
       @subscriptions = (@subscriptions || []).map { |subscription_hash| Subscription._new(@gateway, subscription_hash) }
@@ -45,7 +54,7 @@ module Braintree
       protected :new
     end
 
-    def self._new(*args) # :nodoc:
+    def self._new(*args)
       self.new(*args)
     end
   end
