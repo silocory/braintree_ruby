@@ -1,5 +1,5 @@
 module Braintree
-  class TransactionSearch < AdvancedSearch # :nodoc:
+  class TransactionSearch < AdvancedSearch
     text_fields(
       :billing_company,
       :billing_country_name,
@@ -28,6 +28,7 @@ module Braintree
       :paypal_authorization_id,
       :paypal_payer_email,
       :processor_authorization_code,
+      :sepa_debit_paypal_v2_order_id,
       :settlement_batch_id,
       :shipping_company,
       :shipping_country_name,
@@ -53,20 +54,22 @@ module Braintree
       CreditCard::CustomerLocation::International,
       CreditCard::CustomerLocation::US
     ]
+    multiple_value_field :debit_network, :allows => CreditCard::DebitNetwork::All
     multiple_value_field :ids
-    multiple_value_field :payment_instrument_type
-    multiple_value_field :user
     multiple_value_field :merchant_account_id
-    multiple_value_field :status, :allows => Transaction::Status::All
+    multiple_value_field :payment_instrument_type
+    multiple_value_field :reason_code
     multiple_value_field :source
-    multiple_value_field :type, :allows => Transaction::Type::All
+    multiple_value_field :status, :allows => Transaction::Status::All
     multiple_value_field :store_ids
+    multiple_value_field :type, :allows => Transaction::Type::All
+    multiple_value_field :user
 
     key_value_fields :refund
 
     range_fields :amount, :created_at, :authorization_expired_at, :authorized_at,
                  :failed_at, :gateway_rejected_at, :processor_declined_at,
                  :settled_at, :submitted_for_settlement_at, :voided_at,
-                 :disbursement_date, :dispute_date
+                 :disbursement_date, :dispute_date, :ach_return_responses_created_at
   end
 end

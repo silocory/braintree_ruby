@@ -1,5 +1,5 @@
 module Braintree
-  class PaymentMethodGateway # :nodoc:
+  class PaymentMethodGateway
     include BaseModule
 
     def initialize(gateway)
@@ -9,6 +9,10 @@ module Braintree
     end
 
     def create(attributes)
+      # NEXT_MAJOR_VERSION remove this check
+      if attributes.has_key?(:venmo_sdk_payment_method_code) || attributes.has_key?(:venmo_sdk_session)
+        warn "[DEPRECATED] The Venmo SDK integration is Unsupported. Please update your integration to use Pay with Venmo instead."
+      end
       Util.verify_keys(PaymentMethodGateway._create_signature, attributes)
       _do_create("/payment_methods", :payment_method => attributes)
     end
@@ -17,7 +21,7 @@ module Braintree
       return_object_or_raise(:payment_method) { create(*args) }
     end
 
-    def _do_create(path, params=nil) # :nodoc:
+    def _do_create(path, params=nil)
       response = @config.http.post("#{@config.base_merchant_path}#{path}", params)
       if response[:api_error_response]
         ErrorResult.new(@gateway, response[:api_error_response])
@@ -50,6 +54,8 @@ module Braintree
         GooglePayCard._new(@gateway, response[:android_pay_card])
       elsif response.has_key?(:venmo_account)
         VenmoAccount._new(@gateway, response[:venmo_account])
+      elsif response.has_key?(:sepa_debit_account)
+        SepaDirectDebitAccount._new(@gateway, response[:sepa_debit_account])
       else
         UnknownPaymentMethod._new(@gateway, response)
       end
@@ -58,6 +64,10 @@ module Braintree
     end
 
     def update(token, attributes)
+      # NEXT_MAJOR_VERSION remove this check
+      if attributes.has_key?(:venmo_sdk_payment_method_code) || attributes.has_key?(:venmo_sdk_session)
+        warn "[DEPRECATED] The Venmo SDK integration is Unsupported. Please update your integration to use Pay with Venmo instead."
+      end
       Util.verify_keys(PaymentMethodGateway._update_signature, attributes)
       _do_update(:put, "/payment_methods/any/#{token}", :payment_method => attributes)
     end
@@ -66,7 +76,7 @@ module Braintree
       return_object_or_raise(:payment_method) { update(*args) }
     end
 
-    def _do_update(http_verb, path, params) # :nodoc:
+    def _do_update(http_verb, path, params)
       response = @config.http.send(http_verb, "#{@config.base_merchant_path}#{path}", params)
       if response[:api_error_response]
         ErrorResult.new(@gateway, response[:api_error_response])
@@ -132,27 +142,30 @@ module Braintree
       end
     end
 
-    def self._create_signature # :nodoc:
+    def self._create_signature
       _signature(:create)
     end
 
-    def self._update_signature # :nodoc:
+    def self._update_signature
       _signature(:update)
     end
 
-    def self._delete_signature # :nodoc:
+    def self._delete_signature
       [:revoke_all_grants]
     end
 
-    def self._signature(type) # :nodoc:
+    def self._signature(type)
       billing_address_params = AddressGateway._shared_signature
       paypal_options_shipping_signature = AddressGateway._shared_signature
+      # NEXT_MAJOR_VERSION Remove venmo_sdk_session
+      # The old venmo SDK class has been deprecated
       options = [
         :make_default,
         :skip_advanced_fraud_checking,
         :us_bank_account_verification_method,
-        :venmo_sdk_session,
+        :venmo_sdk_session, # Deprecated
         :verification_account_type,
+        :verification_add_ons,
         :verification_amount,
         :verification_currency_iso_code,
         :verification_merchant_account_id,
@@ -166,10 +179,12 @@ module Braintree
           {:shipping => paypal_options_shipping_signature}
         ],
       ]
+      # NEXT_MAJOR_VERSION Remove venmo_sdk_payment_method_code
+      # The old venmo SDK class has been deprecated
       signature = [
         :billing_address_id, :cardholder_name, :cvv, :expiration_date, :expiration_month,
-        :expiration_year, :number, :token, :venmo_sdk_payment_method_code, :device_data,
-        :payment_method_nonce,
+        :expiration_year, :number, :token, :venmo_sdk_payment_method_code, # Deprecated
+        :device_data, :payment_method_nonce,
         {:options => options},
         {:billing_address => billing_address_params}
       ]
@@ -189,9 +204,12 @@ module Braintree
       case type
       when :create
         options << :fail_on_duplicate_payment_method
+        options << :fail_on_duplicate_payment_method_for_customer
         signature << :customer_id
         signature << :paypal_refresh_token
       when :update
+        options << :fail_on_duplicate_payment_method
+        options << :fail_on_duplicate_payment_method_for_customer
         billing_address_params << {:options => [:update_existing]}
       else
         raise ArgumentError

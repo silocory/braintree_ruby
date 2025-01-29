@@ -1,5 +1,5 @@
 module Braintree
-  class TransactionGateway # :nodoc:
+  class TransactionGateway
     include BaseModule
 
     def initialize(gateway)
@@ -9,6 +9,14 @@ module Braintree
     end
 
     def create(attributes)
+      # NEXT_MAJOR_VERSION remove this check
+      if attributes.has_key?(:venmo_sdk_payment_method_code) || attributes.has_key?(:venmo_sdk_session)
+        warn "[DEPRECATED] The Venmo SDK integration is Unsupported. Please update your integration to use Pay with Venmo instead."
+      end
+      # NEXT_MAJOR_VERSION remove this check
+      if attributes.has_key?(:three_d_secure_token)
+        warn "[DEPRECATED] Passing :three_d_secure_token to create is deprecated. Please use :three_d_secure_authentication_id"
+      end
       Util.verify_keys(TransactionGateway._create_signature, attributes)
       _do_create "/transactions", :transaction => attributes
     end
@@ -104,6 +112,16 @@ module Braintree
       return_object_or_raise(:transaction) { sale(*args) }
     end
 
+    def package_tracking(transaction_id, package_tracking_request)
+      raise ArgumentError, "transaction_id is invalid" unless transaction_id =~ /\A[0-9a-z]+\z/
+      Util.verify_keys(TransactionGateway._package_tracking_request_signature, package_tracking_request)
+      _do_create "/transactions/#{transaction_id}/shipments", :shipment => package_tracking_request
+    end
+
+    def package_tracking!(*args)
+      return_object_or_raise(:transaction) { package_tracking(*args) }
+    end
+
     def search(&block)
       search = TransactionSearch.new
       block.call(search) if block
@@ -160,7 +178,7 @@ module Braintree
 
     def submit_for_partial_settlement(authorized_transaction_id, amount = nil, options = {})
       raise ArgumentError, "authorized_transaction_id is invalid" unless authorized_transaction_id =~ /\A[0-9a-z]+\z/
-      Util.verify_keys(TransactionGateway._submit_for_settlement_signature, options)
+      Util.verify_keys(TransactionGateway._submit_for_partial_settlement_signature, options)
       transaction_params = {:amount => amount}.merge(options)
       response = @config.http.post("#{@config.base_merchant_path}/transactions/#{authorized_transaction_id}/submit_for_partial_settlement", :transaction => transaction_params)
       _handle_transaction_response(response)
@@ -179,27 +197,85 @@ module Braintree
       return_object_or_raise(:transaction) { void(*args) }
     end
 
-    def self._clone_signature # :nodoc:
+    def self._package_tracking_request_signature
+      [
+        :carrier,
+        {:line_items => [:commodity_code, :description, :discount_amount, :image_url, :kind, :name, :product_code, :quantity, :tax_amount, :total_amount, :unit_amount, :unit_of_measure, :unit_tax_amount, :upc_code, :upc_type, :url]},
+        :notify_payer, :tracking_number,
+      ]
+    end
+
+    def self._clone_signature
       [:amount, :channel, {:options => [:submit_for_settlement]}]
     end
 
-    def self._create_signature # :nodoc:
+    # NEXT_MAJOR_VERSION Remove venmo_sdk_payment_method_code, venmo_sdk_session, and three_d_secure_token
+    # The old venmo SDK class has been deprecated
+    # three_d_secure_token has been deprecated in favor of three_d_secure_authentication_id
+    def self._create_signature
       [
-        :amount, :billing_address_id, :channel, :customer_id, :device_data, :discount_amount,
+        :amount, :billing_address_id, :channel, :currency_iso_code, :customer_id, :device_data,
+        :discount_amount, :exchange_rate_quote_id, :foreign_retailer,
         :merchant_account_id, :order_id, :payment_method_nonce, :payment_method_token,
         :product_sku, :purchase_order_number, :service_fee_amount, :shared_billing_address_id,
         :shared_customer_id, :shared_payment_method_nonce, :shared_payment_method_token,
-        :shared_shipping_address_id, :shipping_address_id, :shipping_amount,
-        :ships_from_postal_code, :tax_amount, :tax_exempt, :three_d_secure_authentication_id,
-        :three_d_secure_token, :transaction_source, :type, :venmo_sdk_payment_method_code,
-        :sca_exemption, :currency_iso_code,
-        {:line_items => [:quantity, :name, :description, :kind, :unit_amount, :unit_tax_amount, :total_amount, :discount_amount, :tax_amount, :unit_of_measure, :product_code, :commodity_code, :url]},
-        {:risk_data => [:customer_browser, :customer_device_id, :customer_ip, :customer_location_zip, :customer_tenure]},
-        {:credit_card => [:token, :cardholder_name, :cvv, :expiration_date, :expiration_month, :expiration_year, :number, {:payment_reader_card_details => [:encrypted_card_data, :key_serial_number]}]},
-        {:customer => [:id, :company, :email, :fax, :first_name, :last_name, :phone, :website]},
+        :shared_shipping_address_id, :shipping_address_id, :shipping_amount, :shipping_tax_amount,
+        :ships_from_postal_code, :tax_amount, :tax_exempt, :three_d_secure_authentication_id,:three_d_secure_token, #Deprecated
+        :transaction_source, :type, :venmo_sdk_payment_method_code, # Deprecated
+        :sca_exemption,
+        {:apple_pay_card => [:number, :cardholder_name, :cryptogram, :expiration_month, :expiration_year, :eci_indicator]},
         {
           :billing => AddressGateway._shared_signature
         },
+        {:credit_card => [:token, :cardholder_name, :cvv, :expiration_date, :expiration_month, :expiration_year, :number, {:payment_reader_card_details => [:encrypted_card_data, :key_serial_number]}, {:network_tokenization_attributes => [:cryptogram, :ecommerce_indicator, :token_requestor_id]}]},
+        {:customer => [:id, :company, :email, :fax, :first_name, :last_name, :phone, :website]},
+        {:custom_fields => :_any_key_},
+        {:descriptor => [:name, :phone, :url]},
+        {:external_vault => [
+          :status,
+          :previous_network_transaction_id,
+        ]},
+        {:google_pay_card => [:number, :cryptogram, :google_transaction_id, :expiration_month, :expiration_year, :source_card_type, :source_card_last_four, :eci_indicator]},
+        {:industry => [
+          :industry_type,
+          {:data => [
+            :country_code, :date_of_birth, :folio_number, :check_in_date, :check_out_date, :travel_package, :lodging_check_in_date, :lodging_check_out_date, :departure_date, :lodging_name, :room_rate, :room_tax,
+            :passenger_first_name, :passenger_last_name, :passenger_middle_initial, :passenger_title, :issued_date, :travel_agency_name, :travel_agency_code, :ticket_number,
+            :issuing_carrier_code, :customer_code, :fare_amount, :fee_amount, :tax_amount, :restricted_ticket, :no_show, :advanced_deposit, :fire_safe, :property_phone, :ticket_issuer_address, :arrival_date,
+            {:legs => [
+              :conjunction_ticket, :exchange_ticket, :coupon_number, :service_class, :carrier_code, :fare_basis_code, :flight_number, :departure_date, :departure_airport_code, :departure_time,
+              :arrival_airport_code, :arrival_time, :stopover_permitted, :fare_amount, :fee_amount, :tax_amount, :endorsement_or_restrictions,
+            ]},
+            {:additional_charges => [
+              :kind, :amount,
+            ]},
+          ]},
+        ]},
+        {:installments => [:count]},
+        {:line_items => [:commodity_code, :description, :discount_amount, :image_url, :kind, :name, :product_code, :quantity, :tax_amount, :total_amount, :unit_amount, :unit_of_measure, :unit_tax_amount, :upc_code, :upc_type, :url]},
+        {:options => [
+          :add_billing_address_to_payment_method,
+          {:amex_rewards => [:request_id, :points, :currency_amount, :currency_iso_code]},
+          {:credit_card => [:account_type, :process_debit_as_credit]},
+          :hold_in_escrow,
+          :payee_id,
+          :payee_email,
+          {:paypal => [:custom_field, :description, :payee_id, :payee_email, :recipient_email,  {:recipient_phone => [:country_code, :national_number]}, {:supplementary_data => :_any_key_}]},
+          {:processing_overrides => [:customer_email, :customer_first_name, :customer_last_name, :customer_tax_identifier]},
+          :skip_advanced_fraud_checking,
+          :skip_avs,
+          :skip_cvv,
+          :store_in_vault,
+          :store_in_vault_on_success,
+          :store_shipping_address_in_vault,
+          :submit_for_settlement,
+          {:three_d_secure => [:required]},
+          {:venmo => [:profile_id]},
+          :venmo_sdk_session, # Deprecated
+        ]
+        },
+        {:paypal_account => [:email, :token, :paypal_data, :payee_id, :payee_email, :payer_id, :payment_id]},
+        {:risk_data => [:customer_browser, :customer_device_id, :customer_ip, :customer_location_zip, :customer_tenure]},
         {
           :shipping => AddressGateway._shared_signature + [:shipping_method],
         },
@@ -215,39 +291,19 @@ module Braintree
             :ds_transaction_id,
           ]
         },
-        {:options => [
-          :hold_in_escrow,
-          :store_in_vault,
-          :store_in_vault_on_success,
-          :submit_for_settlement,
-          :add_billing_address_to_payment_method,
-          :store_shipping_address_in_vault,
-          :venmo_sdk_session,
-          :payee_id,
-          :payee_email,
-          :skip_advanced_fraud_checking,
-          :skip_avs,
-          :skip_cvv,
-          {:paypal => [:custom_field, :payee_id, :payee_email, :description, {:supplementary_data => :_any_key_}]},
-          {:three_d_secure => [:required]},
-          {:amex_rewards => [:request_id, :points, :currency_amount, :currency_iso_code]},
-          {:venmo => [:profile_id]},
-          {:credit_card => [:account_type]},
-        ]
-        },
-        {:external_vault => [
-          :status,
-          :previous_network_transaction_id,
-        ]},
-        {:custom_fields => :_any_key_},
+      ]
+    end
+
+    def self._submit_for_settlement_signature
+      [
+        :order_id,
         {:descriptor => [:name, :phone, :url]},
-        {:paypal_account => [:email, :token, :paypal_data, :payee_id, :payee_email, :payer_id, :payment_id]},
         {:industry => [
           :industry_type,
           {:data => [
-            :folio_number, :check_in_date, :check_out_date, :travel_package, :lodging_check_in_date, :lodging_check_out_date, :departure_date, :lodging_name, :room_rate, :room_tax,
+            :country_code, :date_of_birth, :folio_number, :check_in_date, :check_out_date, :travel_package, :lodging_check_in_date, :lodging_check_out_date, :departure_date, :lodging_name, :room_rate, :room_tax,
             :passenger_first_name, :passenger_last_name, :passenger_middle_initial, :passenger_title, :issued_date, :travel_agency_name, :travel_agency_code, :ticket_number,
-            :issuing_carrier_code, :customer_code, :fare_amount, :fee_amount, :tax_amount, :restricted_ticket, :no_show, :advanced_deposit, :fire_safe, :property_phone,
+            :issuing_carrier_code, :customer_code, :fare_amount, :fee_amount, :tax_amount, :restricted_ticket, :no_show, :advanced_deposit, :fire_safe, :property_phone, :ticket_issuer_address, :arrival_date,
             {:legs => [
               :conjunction_ticket, :exchange_ticket, :coupon_number, :service_class, :carrier_code, :fare_basis_code, :flight_number, :departure_date, :departure_airport_code, :departure_time,
               :arrival_airport_code, :arrival_time, :stopover_permitted, :fare_amount, :fee_amount, :tax_amount, :endorsement_or_restrictions,
@@ -257,23 +313,20 @@ module Braintree
             ]},
           ]},
         ]},
-        {:apple_pay_card => [:number, :cardholder_name, :cryptogram, :expiration_month, :expiration_year, :eci_indicator]},
-        {:google_pay_card => [:number, :cryptogram, :google_transaction_id, :expiration_month, :expiration_year, :source_card_type, :source_card_last_four, :eci_indicator]},
-        {:installments => [:count]},
-      ]
-    end
-
-    def self._submit_for_settlement_signature # :nodoc:
-      [
-        :order_id,
-        {:descriptor => [:name, :phone, :url]},
         :purchase_order_number,
         :tax_amount,
         :tax_exempt,
         :discount_amount,
         :shipping_amount,
+        :shipping_tax_amount,
         :ships_from_postal_code,
-        :line_items => [:commodity_code, :description, :discount_amount, :kind, :name, :product_code, :quantity, :tax_amount, :total_amount, :unit_amount, :unit_of_measure, :unit_tax_amount, :url, :tax_amount],
+        :line_items => [:commodity_code, :description, :discount_amount, :image_url, :kind, :name, :product_code, :quantity, :tax_amount, :total_amount, :unit_amount, :unit_of_measure, :unit_tax_amount, :upc_code, :upc_type, :url],
+      ]
+    end
+
+    def self._submit_for_partial_settlement_signature
+      _submit_for_settlement_signature + [
+        :final_capture
       ]
     end
 
@@ -283,7 +336,7 @@ module Braintree
       ]
     end
 
-    def self._update_details_signature # :nodoc:
+    def self._update_details_signature
       [
         :amount,
         :order_id,
@@ -299,7 +352,7 @@ module Braintree
       ]
     end
 
-    def _do_create(path, params=nil) # :nodoc:
+    def _do_create(path, params=nil)
       if !params.nil?
         params = Util.replace_key(params, :google_pay_card, :android_pay_card)
       end
@@ -307,7 +360,7 @@ module Braintree
       _handle_transaction_response(response)
     end
 
-    def _fetch_transactions(search, ids) # :nodoc:
+    def _fetch_transactions(search, ids)
       search.ids.in ids
       response = @config.http.post("#{@config.base_merchant_path}/transactions/advanced_search", {:search => search.to_hash})
       attributes = response[:credit_card_transactions]

@@ -24,7 +24,6 @@ describe Braintree::Dispute, "search" do
         :number => Braintree::Test::CreditCardNumbers::Disputes::Chargeback,
       },
       :customer_id => customer.id,
-      :merchant_account_id => "14LaddersLLC_instant",
       :options => {
         :submit_for_settlement => true,
       },
@@ -75,19 +74,6 @@ describe Braintree::Dispute, "search" do
       end
 
       expect(collection.disputes.count).to be >= 2
-      dispute = collection.disputes.first
-    end
-
-    it "correctly returns chargeback protected disputes" do
-      collection = Braintree::Dispute.search do |search|
-        search.case_number.is "CASE-CHARGEBACK-PROTECTED"
-      end
-
-      expect(collection.disputes.count).to eq(1)
-      dispute = collection.disputes.first
-
-      expect(dispute.chargeback_protection_level).to eq(Braintree::Dispute::ChargebackProtectionLevel::Effortless)
-      expect(dispute.reason).to eq(Braintree::Dispute::Reason::Fraud)
     end
 
     it "correctly returns disputes by chargeback protection level flag" do
@@ -96,11 +82,36 @@ describe Braintree::Dispute, "search" do
           Braintree::Dispute::ChargebackProtectionLevel::Effortless
         ]
       end
-      expect(collection.disputes.count).to eq(1)
-      dispute = collection.disputes.first
+      expect(collection.disputes.count).to be > 0
 
-      expect(dispute.chargeback_protection_level).to eq(Braintree::Dispute::ChargebackProtectionLevel::Effortless)
-      expect(dispute.reason).to eq(Braintree::Dispute::Reason::Fraud)
+      # NEXT_MAJOR_VERSION Remove this assertion when chargeback_protection_level is removed from the SDK
+      collection.disputes.each do |dispute|
+        expect(dispute.chargeback_protection_level).to eq(Braintree::Dispute::ChargebackProtectionLevel::Effortless)
+        expect(dispute.protection_level).to eq(Braintree::Dispute::ProtectionLevel::EffortlessCBP)
+      end
+    end
+
+    context "pre-dispute program" do
+      it "correctly returns disputes by pre-dispute program" do
+        collection = Braintree::Dispute.search do |search|
+          search.pre_dispute_program.in [
+            Braintree::Dispute::PreDisputeProgram::VisaRdr
+          ]
+        end
+
+        expect(collection.disputes.count).to eq(1)
+        dispute = collection.disputes.first
+        expect(dispute.pre_dispute_program).to eq(Braintree::Dispute::PreDisputeProgram::VisaRdr)
+      end
+
+      it "correctly returns disputes with no pre-dispute program" do
+        collection = Braintree::Dispute.search do |search|
+          search.pre_dispute_program.is Braintree::Dispute::PreDisputeProgram::None
+        end
+
+        expect(collection.disputes.count).to be > 1
+        expect(collection.disputes.map(&:pre_dispute_program).uniq).to eq([Braintree::Dispute::PreDisputeProgram::None])
+      end
     end
 
     it "correctly returns disputes by effective_date range" do

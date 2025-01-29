@@ -1,6 +1,8 @@
 module Braintree
   class Transaction
-    class SamsungPayCardDetails # :nodoc:
+    # NEXT_MAJOR_VERSION remove this class
+    # SamsungPayCard has been deprecated
+    class SamsungPayCardDetails
       include BaseModule
 
       attr_reader :bin

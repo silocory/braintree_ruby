@@ -25,16 +25,17 @@ module Braintree
       end
     end
 
-    def self._generate_signature # :nodoc:
+    def self._generate_signature
       [
         :address_id, :customer_id, :proxy_merchant_id, :merchant_account_id,
         :version,
-        {:options => [:make_default, :verify_card, :fail_on_duplicate_payment_method]}
+        {:domains => [:_any_key_]},
+        {:options => [:fail_on_duplicate_payment_method, :fail_on_duplicate_payment_method_for_customer, :make_default, :verify_card]}
       ]
     end
 
     def _validate_options(options)
-      [:make_default, :fail_on_duplicate_payment_method, :verify_card].each do |credit_card_option|
+      [:fail_on_duplicate_payment_method, :fail_on_duplicate_payment_method_for_customer, :make_default, :verify_card].each do |credit_card_option|
         if options[credit_card_option]
           raise ArgumentError.new("cannot specify #{credit_card_option} without a customer_id") unless options[:customer_id]
         end

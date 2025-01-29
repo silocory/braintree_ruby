@@ -1,5 +1,5 @@
 module Braintree
-  class Http # :nodoc:
+  class Http
 
     LINE_FEED = "\r\n"
 
@@ -7,8 +7,7 @@ module Braintree
       @config = config
     end
 
-    def delete(_path, query_params = {})
-      path = _path + _build_query_string(query_params)
+    def delete(path, query_params = {})
       response = _http_do Net::HTTP::Delete, path
       if response.code.to_i == 200 || response.code.to_i == 204
         true
@@ -19,8 +18,7 @@ module Braintree
       end
     end
 
-    def get(_path, query_params = {})
-      path = _path + _build_query_string(query_params)
+    def get(path, query_params = {})
       response = _http_do Net::HTTP::Get, path
       if response.code.to_i == 200 || response.code.to_i == 422
         Xml.hash_from_xml(_body(response))
@@ -69,7 +67,7 @@ module Braintree
 
     def _setup_connection(server = @config.server, port = @config.port)
       if @config.proxy_address
-        connection = Net::HTTP.new(
+        Net::HTTP.new(
           server,
           port,
           @config.proxy_address,
@@ -78,7 +76,7 @@ module Braintree
           @config.proxy_pass,
         )
       else
-        connection = Net::HTTP.new(server, port)
+        Net::HTTP.new(server, port)
       end
     end
 
@@ -188,6 +186,7 @@ module Braintree
       formatted_xml = input_xml.gsub(/^/, "[Braintree] ")
       formatted_xml = formatted_xml.gsub(/<number>(.{6}).+?(.{4})<\/number>/m, '<number>\1******\2</number>')
       formatted_xml = formatted_xml.gsub(/<cvv>.+?<\/cvv>/m, "<cvv>***</cvv>")
+      formatted_xml = formatted_xml.gsub(/<encrypted-card-data>.+?<\/encrypted-card-data>/m, "<encrypted-card-data>***</encrypted-card-data>")
       formatted_xml
     end
 

@@ -7,14 +7,14 @@ module Braintree
       it "delegates to ClientTokenGateway#generate" do
         options = {:foo => :bar}
         client_token_gateway = double(:client_token_gateway)
-        client_token_gateway.should_receive(:generate).with(options).once
-        ClientTokenGateway.stub(:new).and_return(client_token_gateway)
+        expect(client_token_gateway).to receive(:generate).with(options).once
+        allow(ClientTokenGateway).to receive(:new).and_return(client_token_gateway)
         ClientToken.generate(options)
       end
 
       it "can't overwrite public_key, or created_at" do
         expect {
-          client_token = Braintree::ClientToken.generate(
+          Braintree::ClientToken.generate(
             :public_key => "bad_key",
             :created_at => "bad_time",
           )
@@ -23,7 +23,7 @@ module Braintree
     end
 
     context "adding credit_card options with no customer ID" do
-      %w(verify_card fail_on_duplicate_payment_method make_default).each do |option_name|
+      %w(verify_card fail_on_duplicate_payment_method make_default fail_on_duplicate_payment_method_for_customer).each do |option_name|
         it "raises an ArgumentError if #{option_name} is present" do
           expect do
             Braintree::ClientToken.generate(

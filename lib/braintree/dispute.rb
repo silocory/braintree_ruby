@@ -1,5 +1,5 @@
 module Braintree
-  class Dispute # :nodoc:
+  class Dispute
     include BaseModule
     include Braintree::Util::IdEquality
 
@@ -7,7 +7,9 @@ module Braintree
     attr_reader :amount_disputed
     attr_reader :amount_won
     attr_reader :case_number
-    attr_reader :chargeback_protection_level
+    # NEXT_MAJOR_VERSION Remove this attribute
+    # DEPRECATED The chargeback_protection_level attribute is deprecated in favor of protection_level
+    attr_reader :chargeback_protection_level #Deprecated
     attr_reader :created_at
     attr_reader :currency_iso_code
     attr_reader :date_opened
@@ -19,7 +21,9 @@ module Braintree
     attr_reader :merchant_account_id
     attr_reader :original_dispute_id
     attr_reader :paypal_messages
+    attr_reader :pre_dispute_program
     attr_reader :processor_comments
+    attr_reader :protection_level
     attr_reader :reason
     attr_reader :reason_code
     attr_reader :reason_description
@@ -34,10 +38,12 @@ module Braintree
 
     module Status
       Accepted = "accepted"
+      AutoAccepted = "auto_accepted"
       Disputed = "disputed"
       Expired = "expired"
       Open = "open"
       Lost = "lost"
+      UnderReview = "under_review"
       Won = "won"
 
       All = constants.map { |c| const_get(c) }
@@ -75,9 +81,24 @@ module Braintree
       All = constants.map { |c| const_get(c) }
     end
 
+    module ProtectionLevel
+      EffortlessCBP = "Effortless Chargeback Protection tool"
+      StandardCBP = "Chargeback Protection tool"
+      NoProtection = "No Protection"
+
+      All = constants.map { |c| const_get(c) }
+    end
+
+    module PreDisputeProgram
+      None = "none"
+      VisaRdr = "visa_rdr"
+
+      All = constants.map { |c| const_get(c) }
+    end
+
     class << self
       protected :new
-      def _new(*args) # :nodoc:
+      def _new(*args)
         self.new(*args)
       end
     end
@@ -110,7 +131,7 @@ module Braintree
       Configuration.gateway.dispute.search(&block)
     end
 
-    def initialize(attributes) # :nodoc:
+    def initialize(attributes)
       set_instance_variables_from_hash(attributes)
       @date_opened = Date.parse(date_opened) unless date_opened.nil?
       @date_won = Date.parse(date_won) unless date_won.nil?
@@ -119,6 +140,11 @@ module Braintree
       @amount = Util.to_big_decimal(amount)
       @amount_disputed = Util.to_big_decimal(amount_disputed)
       @amount_won = Util.to_big_decimal(amount_won)
+      if (ChargebackProtectionLevel::All - [ChargebackProtectionLevel::NotProtected]).include?(chargeback_protection_level)
+        @protection_level = Dispute.const_get("ProtectionLevel::#{chargeback_protection_level.capitalize}CBP")
+      else
+        @protection_level = ProtectionLevel::NoProtection
+      end
 
       @evidence = evidence.map do |record|
         Braintree::Dispute::Evidence.new(record)

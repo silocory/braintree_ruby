@@ -2,8 +2,9 @@ module Braintree
   class Errors
     include Enumerable
 
-    def initialize(data = {}) # :nodoc:
-      @errors = ValidationErrorCollection.new(data.merge(:errors => []))
+    def initialize(data = {})
+      data = data.merge(:errors => []) unless data
+      @errors = ValidationErrorCollection.new(data)
     end
 
     def each(&block)
@@ -14,7 +15,7 @@ module Braintree
       @errors.for(scope)
     end
 
-    def inspect # :nodoc:
+    def inspect
       "#<#{self.class} #{_inner_inspect}>"
     end
 
@@ -25,7 +26,7 @@ module Braintree
       @errors.deep_size
     end
 
-    def _inner_inspect # :nodoc:
+    def _inner_inspect
       @errors._inner_inspect
     end
   end

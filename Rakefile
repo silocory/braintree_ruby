@@ -19,9 +19,10 @@ namespace :test do
   #   rake test:unit[configuration_spec]
   #   rake test:unit[configuration_spec,"accepts merchant credentials"]
   desc "Run unit tests"
-  task :unit, [:file_name, :test_name] => [:lint] do |task, args|
+  task :unit, [:file_name, :test_name] => [:lint] do |_task, args|
     if args.file_name.nil?
       sh "rspec --pattern spec/unit/**/*_spec.rb"
+      sh "rspec --pattern spec/unit/braintree/graphql/*_spec.rb"
     elsif args.test_name.nil?
       sh "rspec --pattern spec/unit/**/#{args.file_name}.rb --format documentation --color"
     else
@@ -34,7 +35,7 @@ namespace :test do
   #   rake test:integration[plan_spec]
   #   rake test:integration[plan_spec,"gets all plans"]
   desc "Run integration tests"
-  task :integration, [:file_name, :test_name] => [:lint] do |task, args|
+  task :integration, [:file_name, :test_name] => [:lint] do |_task, args|
     if args.file_name.nil?
       sh "rspec --pattern spec/integration/**/*_spec.rb"
     elsif args.test_name.nil?

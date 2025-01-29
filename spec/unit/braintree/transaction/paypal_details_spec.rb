@@ -21,10 +21,14 @@ describe Braintree::Transaction::PayPalDetails do
         :payer_last_name => "Hopper",
         :payer_status =>"status",
         :payment_id => "payment-id",
+        :recipient_email => "test@paypal.com",
+        :recipient_phone => [:country_code => "1", :national_number => "4082222222"],
         :refund_from_transaction_fee_amount => "1.00",
         :refund_from_transaction_fee_currency_iso_code => "123",
         :refund_id => "refund-id",
         :seller_protection_status => "seller-protection-status",
+        :tax_id => "tax-id",
+        :tax_id_type => "tax-id-type",
         :token => "token",
         :transaction_fee_amount => "2.00",
         :transaction_fee_currency_iso_code => "123",
@@ -47,10 +51,15 @@ describe Braintree::Transaction::PayPalDetails do
       expect(details.payer_last_name).to eq("Hopper")
       expect(details.payer_status).to eq("status")
       expect(details.payment_id).to eq("payment-id")
+      expect(details.recipient_email).to eq("test@paypal.com")
+      expect(details.recipient_phone.country_code).to eq("1")
+      expect(details.recipient_phone.national_number).to eq("4082222222")
       expect(details.refund_from_transaction_fee_amount).to eq("1.00")
       expect(details.refund_from_transaction_fee_currency_iso_code).to eq("123")
       expect(details.refund_id).to eq("refund-id")
       expect(details.seller_protection_status).to eq("seller-protection-status")
+      expect(details.tax_id).to eq("tax-id")
+      expect(details.tax_id_type).to eq("tax-id-type")
       expect(details.token).to eq("token")
       expect(details.transaction_fee_amount).to eq("2.00")
       expect(details.transaction_fee_currency_iso_code).to eq("123")

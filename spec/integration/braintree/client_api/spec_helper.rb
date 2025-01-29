@@ -144,7 +144,7 @@ def generate_invalid_us_bank_account_nonce
   nonce_characters = "bcdfghjkmnpqrstvwxyz23456789".chars.to_a
   nonce = "tokenusbankacct_"
   nonce += 4.times.map { sample(nonce_characters) }.join("_")
-  nonce += "_xxx"
+  nonce + "_xxx"
 end
 
 def _cosmos_post(token, url, payload)
@@ -282,8 +282,8 @@ class ClientApiHttp
     params = {:credit_card => params}
     params.merge!(
       :authorization_fingerprint => @options[:authorization_fingerprint],
-      :shared_customer_identifier => "fake_identifier",
-      :shared_customer_identifier_type => "testing",
+      :shared_customer_identifier => @options[:shared_customer_identifier],
+      :shared_customer_identifier_type => @options[:shared_customer_identifier_type],
     )
 
     post("/merchants/#{config.merchant_id}/client_api/v1/payment_methods/credit_cards", params)

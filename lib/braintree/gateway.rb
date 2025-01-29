@@ -38,6 +38,10 @@ module Braintree
       CustomerGateway.new(self)
     end
 
+    def customer_session
+      CustomerSessionGateway.new(self, graphql_client)
+    end
+
     def discount
       DiscountGateway.new(self)
     end
@@ -48,6 +52,10 @@ module Braintree
 
     def document_upload
       DocumentUploadGateway.new(self)
+    end
+
+    def exchange_rate_quote
+      ExchangeRateQuoteGateway.new(self)
     end
 
     def oauth
@@ -72,6 +80,10 @@ module Braintree
 
     def us_bank_account
       UsBankAccountGateway.new(self)
+    end
+
+    def sepa_direct_debit_account
+      SepaDirectDebitAccountGateway.new(self)
     end
 
     def merchant

@@ -1,6 +1,6 @@
 module Braintree
   class Transaction
-    class AddressDetails # :nodoc:
+    class AddressDetails
       include BaseModule
 
       module ShippingMethod
@@ -10,6 +10,7 @@ module Braintree
         Ground = "ground"
         Electronic = "electronic"
         ShipToStore = "ship_to_store"
+        PickupInStore = "pickup_in_store"
       end
 
       attr_reader :company
@@ -20,6 +21,7 @@ module Braintree
       attr_reader :extended_address
       attr_reader :first_name
       attr_reader :id
+      attr_reader :international_phone
       attr_reader :last_name
       attr_reader :locality
       attr_reader :phone_number
