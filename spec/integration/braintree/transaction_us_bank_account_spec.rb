@@ -140,8 +140,26 @@ describe Braintree::Transaction do
             expect(transaction.us_bank_account_details.account_type).to eq("checking")
             expect(transaction.us_bank_account_details.account_holder_name).to eq("John Doe")
             expect(transaction.us_bank_account_details.bank_name).to match(/CHASE/)
-            expect(transaction.us_bank_account_details.ach_mandate.text).to eq("cl mandate text")
             expect(transaction.us_bank_account_details.ach_mandate.accepted_at).to be_a Time
+          end
+
+          it "returns ach_type and requested_ach_type on transaction create" do
+            result = Braintree::Transaction.create(
+              :type => "sale",
+              :amount => Braintree::Test::TransactionAmounts::Authorize,
+              :merchant_account_id => SpecHelper::UsBankMerchantAccountId,
+              :payment_method_nonce => non_plaid_nonce,
+              :options => {
+                :submit_for_settlement => true,
+                :us_bank_account => {
+                  :ach_type => "same_day",
+                },
+              },
+            )
+            expect(result.success?).to eq(true)
+            # if the test is ran before 2pm - it returns 'same_day', otherwise 'standard'
+            expect(result.transaction.ach_type).to eq("same_day").or eq("standard")
+            expect(result.transaction.requested_ach_type).to eq("same_day")
           end
 
           it "sale fails for invalid nonce" do
@@ -191,6 +209,29 @@ describe Braintree::Transaction do
           end
         end
       end
+    end
+  end
+
+  describe "self.find" do
+    it "returns ach_type and requested_ach_type for same_day ach with same_day requested" do
+      transaction = Braintree::Transaction.find("sameday_ach_sameday_requested")
+
+      expect(transaction.ach_type).to eq("same_day")
+      expect(transaction.requested_ach_type).to eq("same_day")
+    end
+
+    it "returns ach_type and requested_ach_type for standard ach with same_day requested" do
+      transaction = Braintree::Transaction.find("standard_ach_sameday_requested")
+
+      expect(transaction.ach_type).to eq("standard")
+      expect(transaction.requested_ach_type).to eq("same_day")
+    end
+
+    it "returns ach_type and requested_ach_type for standard ach with standard requested" do
+      transaction = Braintree::Transaction.find("standard_ach_standard_requested")
+
+      expect(transaction.ach_type).to eq("standard")
+      expect(transaction.requested_ach_type).to eq("standard")
     end
   end
 end

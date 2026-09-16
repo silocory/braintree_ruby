@@ -19,7 +19,7 @@ describe Braintree::CreditCardVerification do
         :network_response_code => "05",
         :network_response_text => "Do not Honor",
       )
-      expect(verification.inspect).to eq(%(#<Braintree::CreditCardVerification amount: "12.45", ani_first_name_response_code: "I", ani_last_name_response_code: "I", avs_error_response_code: "I", avs_postal_code_response_code: "I", avs_street_address_response_code: "I", billing: nil, created_at: nil, credit_card: nil, currency_iso_code: "USD", cvv_response_code: "I", gateway_rejection_reason: nil, id: nil, merchant_account_id: "some_id", network_response_code: "05", network_response_text: "Do not Honor", processor_response_code: "2000", processor_response_text: "Do Not Honor", status: "verified">))
+      expect(verification.inspect).to eq(%(#<Braintree::CreditCardVerification amount: "12.45", ani_first_name_response_code: "I", ani_last_name_response_code: "I", apple_pay: nil, avs_error_response_code: "I", avs_postal_code_response_code: "I", avs_street_address_response_code: "I", billing: nil, created_at: nil, credit_card: nil, currency_iso_code: "USD", cvv_response_code: "I", gateway_rejection_reason: nil, id: nil, merchant_account_id: "some_id", network_response_code: "05", network_response_text: "Do not Honor", processor_response_code: "2000", processor_response_text: "Do Not Honor", status: "verified">))
     end
 
     it "has a status" do
@@ -58,6 +58,13 @@ describe Braintree::CreditCardVerification do
       :network_transaction_id => "123456789012345",
     )
     expect(verification.network_transaction_id).to eq "123456789012345"
+  end
+
+  it "sets mastercard_transaction_link_id" do
+    verification = Braintree::CreditCardVerification._new(
+      :mastercard_transaction_link_id => "ZairABg6CIFekPMsnK0cJ2",
+    )
+    expect(verification.mastercard_transaction_link_id).to eq "ZairABg6CIFekPMsnK0cJ2"
   end
 
   describe "self.create" do
@@ -157,6 +164,31 @@ describe Braintree::CreditCardVerification do
 
       expect(verification.network_response_code).to eq("00")
       expect(verification.network_response_text).to eq("Successful approval/completion or V.I.P. PIN verification is successful")
+    end
+  end
+
+  describe "credit_card with payment_account_reference" do
+    it "includes payment_account_reference in credit_card hash when present" do
+      verification = Braintree::CreditCardVerification._new(
+        :status => "verified",
+        :credit_card => {
+          :bin => "401288",
+          :last_4 => "1881",
+          :card_type => "Visa",
+          :payment_account_reference => "V0010013019339005665779448477"
+        },
+      )
+
+      expect(verification.credit_card).to be_a(Hash)
+      expect(verification.credit_card[:payment_account_reference]).to eq("V0010013019339005665779448477")
+    end
+  end
+
+  describe "path traversal" do
+    it "self.find raises an exception if the id is a traversal segment" do
+      expect do
+        Braintree::CreditCardVerification.find("../verifications/victim_id")
+      end.to raise_error(ArgumentError, "id contains invalid characters")
     end
   end
 end

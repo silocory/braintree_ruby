@@ -26,6 +26,10 @@ module Braintree
       ApplePayGateway.new(self)
     end
 
+    def bank_account_instant_verification
+      BankAccountInstantVerificationGateway.new(self)
+    end
+
     def client_token
       ClientTokenGateway.new(self)
     end
@@ -40,6 +44,10 @@ module Braintree
 
     def customer_session
       CustomerSessionGateway.new(self, graphql_client)
+    end
+
+    def local_payment_context
+      LocalPaymentContextGateway.new(self, graphql_client)
     end
 
     def discount

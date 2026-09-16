@@ -97,7 +97,7 @@ describe Braintree::Http do
     end
 
     describe "ssl_version" do
-      xit "causes failed requests to sandbox with incompatible SSL version" do
+      it "causes failed requests to sandbox with incompatible SSL version" do
         begin
           original_env = Braintree::Configuration.environment
           Braintree::Configuration.environment = :sandbox
@@ -258,7 +258,7 @@ describe Braintree::Http do
         context = OpenSSL::X509::StoreContext.new(OpenSSL::X509::Store.new)
         context.error = 19
         expect(Braintree::Configuration.instantiate.http._verify_ssl_certificate(false, context)).to eq(false)
-        expect(output.string).to include("SSL Verification failed -- Preverify: false, Error: self signed certificate in certificate chain (19)")
+        expect(output.string).to match(/SSL Verification failed -- Preverify: false, Error: self[ -]?signed certificate in certificate chain \(19\)/)
       ensure
         Braintree::Configuration.logger = old_logger
       end

@@ -28,6 +28,7 @@ module Braintree
     attr_reader :amount
     attr_reader :ani_first_name_response_code
     attr_reader :ani_last_name_response_code
+    attr_reader :apple_pay
     attr_reader :avs_error_response_code
     attr_reader :avs_postal_code_response_code
     attr_reader :avs_street_address_response_code
@@ -39,6 +40,7 @@ module Braintree
     attr_reader :gateway_rejection_reason
     attr_reader :graphql_id
     attr_reader :id
+    attr_reader :mastercard_transaction_link_id
     attr_reader :merchant_account_id
     attr_reader :network_response_code
     attr_reader :network_response_text
@@ -64,6 +66,7 @@ module Braintree
         :amount,
         :ani_first_name_response_code,
         :ani_last_name_response_code,
+        :apple_pay,
         :avs_error_response_code,
         :avs_postal_code_response_code,
         :avs_street_address_response_code,

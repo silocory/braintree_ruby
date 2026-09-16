@@ -33,13 +33,13 @@ describe Braintree::TransactionGateway do
     # three_d_secure_token has been deprecated in favor of three_d_secure_authentication_id
     it "creates a transaction gateway signature" do
       expect(Braintree::TransactionGateway._create_signature).to match([
-        :amount, :billing_address_id, :channel, :currency_iso_code, :customer_id, :device_data,
+        :accept_partial_authorization, :amount, :api_request_key, :billing_address_id, :channel, :currency_iso_code, :customer_id, :device_data,
         :discount_amount, :exchange_rate_quote_id, :foreign_retailer,
-        :merchant_account_id, :order_id, :payment_method_nonce, :payment_method_token,
+        :merchant_account_id, :order_id, :payment_method_nonce, :payment_method_token, :processing_merchant_category_code,
         :product_sku, :purchase_order_number, :service_fee_amount, :shared_billing_address_id,
         :shared_customer_id, :shared_payment_method_nonce, :shared_payment_method_token,
         :shared_shipping_address_id, :shipping_address_id, :shipping_amount, :shipping_tax_amount,
-        :ships_from_postal_code, :tax_amount, :tax_exempt, :three_d_secure_authentication_id,:three_d_secure_token, #Deprecated
+        :ships_from_postal_code, :surcharge_amount, :tax_amount, :tax_exempt, :three_d_secure_authentication_id,:three_d_secure_token, #Deprecated
         :transaction_source, :type, :venmo_sdk_payment_method_code, # Deprecated
         :sca_exemption,
         {:apple_pay_card => [:number, :cardholder_name, :cryptogram, :expiration_month, :expiration_year, :eci_indicator]},
@@ -47,7 +47,7 @@ describe Braintree::TransactionGateway do
           :billing => Braintree::AddressGateway._shared_signature
         },
         {:credit_card => [:token, :cardholder_name, :cvv, :expiration_date, :expiration_month, :expiration_year, :number, {:payment_reader_card_details => [:encrypted_card_data, :key_serial_number]}, {:network_tokenization_attributes => [:cryptogram, :ecommerce_indicator, :token_requestor_id]}]},
-        {:customer => [:id, :company, :email, :fax, :first_name, :last_name, :phone, :website]},
+        {:customer => [:id, :company, :email, :fax, :first_name, {:international_phone => [:country_code, :national_number]}, :last_name, :phone, :website]},
         {:custom_fields => :_any_key_},
         {:descriptor => [:name, :phone, :url]},
         {:external_vault => [
@@ -89,6 +89,7 @@ describe Braintree::TransactionGateway do
           :store_shipping_address_in_vault,
           :submit_for_settlement,
           {:three_d_secure => [:required]},
+          {:us_bank_account => [:ach_type]},
           {:venmo => [:profile_id]},
           :venmo_sdk_session, # Deprecated
         ]
@@ -127,11 +128,37 @@ describe Braintree::TransactionGateway do
             :directory_response,
             :cavv_algorithm,
             :ds_transaction_id,
+            :network,
           ]
         },
         {
           :transfer => [
             :type,
+            {:sender => [
+              :account_reference_number,
+              :account_reference_number_type,
+              :date_of_birth,
+              :first_name,
+              :last_name,
+              :middle_name,
+              :tax_id,
+              :address => Braintree::AddressGateway._address_attributes
+            ]},
+            {:receiver => [
+              :account_reference_number,
+              :account_reference_number_type,
+              :first_name,
+              :last_name,
+              :middle_name,
+              :tax_id,
+              :address => Braintree::AddressGateway._address_attributes
+            ]},
+          ]
+        },
+        {
+          :us_bank_account => [
+            :ach_mandate_text,
+            :ach_mandate_accepted_at,
           ]
         },
       ])
@@ -139,6 +166,7 @@ describe Braintree::TransactionGateway do
 
     it "creates a transaction gateway submit for settlement signature" do
       expect(Braintree::TransactionGateway._submit_for_settlement_signature).to match([
+        :api_request_key,
         :order_id,
         {:descriptor => [:name, :phone, :url]},
         {:industry => [
@@ -160,6 +188,8 @@ describe Braintree::TransactionGateway do
         :tax_amount,
         :tax_exempt,
         :discount_amount,
+        {:shipping => Braintree::AddressGateway._shared_signature},
+        :shipping_address_id,
         :shipping_amount,
         :shipping_tax_amount,
         :ships_from_postal_code,
@@ -169,6 +199,16 @@ describe Braintree::TransactionGateway do
 
     it "creates transaction gateway submit for partial settlement signature" do
        expect(Braintree::TransactionGateway._submit_for_partial_settlement_signature).to include(:final_capture)
+    end
+
+    it "creates a transaction gateway refund signature" do
+      expect(Braintree::TransactionGateway._refund_signature).to match([
+        :amount,
+        :api_request_key,
+        :merchant_account_id,
+        :order_id,
+        :surcharge_amount,
+      ])
     end
   end
 end

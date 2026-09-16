@@ -22,7 +22,7 @@ module Braintree
     end
 
     def cancel_release(transaction_id)
-      raise ArgumentError, "transaction_id is invalid" unless transaction_id =~ /\A[0-9a-z]+\z/
+      raise ArgumentError, "transaction_id contains invalid characters" if Util.invalid_path_segment?(transaction_id)
       response = @config.http.put("#{@config.base_merchant_path}/transactions/#{transaction_id}/cancel_release")
       _handle_transaction_response(response)
     end
@@ -42,6 +42,8 @@ module Braintree
     end
 
     def clone_transaction(transaction_id, attributes)
+      raise ArgumentError, "transaction_id contains invalid characters" if Util.invalid_path_segment?(transaction_id)
+
       Util.verify_keys(TransactionGateway._clone_signature, attributes)
       _do_create "/transactions/#{transaction_id}/clone", :transaction_clone => attributes
     end
@@ -59,7 +61,9 @@ module Braintree
     end
 
     def find(id)
-      raise ArgumentError, "id can not be empty" if id.nil? || id.strip.to_s == ""
+      raise ArgumentError, "id can not be empty" if id.nil? || id.to_s.strip == ""
+      raise ArgumentError, "id contains invalid characters" if Util.invalid_path_segment?(id)
+
       response = @config.http.get("#{@config.base_merchant_path}/transactions/#{id}")
       Transaction._new(@gateway, response[:transaction])
     rescue NotFoundError
@@ -67,6 +71,8 @@ module Braintree
     end
 
     def refund(transaction_id, amount_or_options = nil)
+      raise ArgumentError, "transaction_id contains invalid characters" if Util.invalid_path_segment?(transaction_id)
+
       options = if amount_or_options.is_a?(Hash)
                   amount_or_options
                 else
@@ -103,7 +109,7 @@ module Braintree
     end
 
     def package_tracking(transaction_id, package_tracking_request)
-      raise ArgumentError, "transaction_id is invalid" unless transaction_id =~ /\A[0-9a-z]+\z/
+      raise ArgumentError, "transaction_id contains invalid characters" if Util.invalid_path_segment?(transaction_id)
       Util.verify_keys(TransactionGateway._package_tracking_request_signature, package_tracking_request)
       _do_create "/transactions/#{transaction_id}/shipments", :shipment => package_tracking_request
     end
@@ -126,7 +132,7 @@ module Braintree
     end
 
     def submit_for_settlement(transaction_id, amount = nil, options = {})
-      raise ArgumentError, "transaction_id is invalid" unless transaction_id =~ /\A[0-9a-z]+\z/
+      raise ArgumentError, "transaction_id contains invalid characters" if Util.invalid_path_segment?(transaction_id)
       Util.verify_keys(TransactionGateway._submit_for_settlement_signature, options)
       transaction_params = {:amount => amount}.merge(options)
       response = @config.http.put("#{@config.base_merchant_path}/transactions/#{transaction_id}/submit_for_settlement", :transaction => transaction_params)
@@ -138,7 +144,7 @@ module Braintree
     end
 
     def adjust_authorization(transaction_id, amount)
-      raise ArgumentError, "transaction_id is invalid" unless transaction_id =~ /\A[0-9a-z]+\z/
+      raise ArgumentError, "transaction_id contains invalid characters" if Util.invalid_path_segment?(transaction_id)
       Util.verify_keys(TransactionGateway._adjust_authorization_signature, {})
       transaction_params = {:amount => amount}
       response = @config.http.put("#{@config.base_merchant_path}/transactions/#{transaction_id}/adjust_authorization", :transaction => transaction_params)
@@ -150,14 +156,14 @@ module Braintree
     end
 
     def update_details(transaction_id, options = {})
-      raise ArgumentError, "transaction_id is invalid" unless transaction_id =~ /\A[0-9a-z]+\z/
+      raise ArgumentError, "transaction_id contains invalid characters" if Util.invalid_path_segment?(transaction_id)
       Util.verify_keys(TransactionGateway._update_details_signature, options)
       response = @config.http.put("#{@config.base_merchant_path}/transactions/#{transaction_id}/update_details", :transaction => options)
       _handle_transaction_response(response)
     end
 
     def submit_for_partial_settlement(authorized_transaction_id, amount = nil, options = {})
-      raise ArgumentError, "authorized_transaction_id is invalid" unless authorized_transaction_id =~ /\A[0-9a-z]+\z/
+      raise ArgumentError, "authorized_transaction_id contains invalid characters" if Util.invalid_path_segment?(authorized_transaction_id)
       Util.verify_keys(TransactionGateway._submit_for_partial_settlement_signature, options)
       transaction_params = {:amount => amount}.merge(options)
       response = @config.http.post("#{@config.base_merchant_path}/transactions/#{authorized_transaction_id}/submit_for_partial_settlement", :transaction => transaction_params)
@@ -168,8 +174,14 @@ module Braintree
       return_object_or_raise(:transaction) { submit_for_partial_settlement(*args) }
     end
 
-    def void(transaction_id)
-      response = @config.http.put("#{@config.base_merchant_path}/transactions/#{transaction_id}/void")
+    def void(transaction_id, options = {})
+      raise ArgumentError, "transaction_id contains invalid characters" if Util.invalid_path_segment?(transaction_id)
+
+      transaction_params = options.empty? ? nil : options
+      response = @config.http.put(
+        "#{@config.base_merchant_path}/transactions/#{transaction_id}/void",
+        transaction_params ? {:transaction => transaction_params} : nil,
+      )
       _handle_transaction_response(response)
     end
 
@@ -194,13 +206,13 @@ module Braintree
     # three_d_secure_token has been deprecated in favor of three_d_secure_authentication_id
     def self._create_signature
       [
-        :amount, :billing_address_id, :channel, :currency_iso_code, :customer_id, :device_data,
+        :accept_partial_authorization, :amount, :api_request_key, :billing_address_id, :channel, :currency_iso_code, :customer_id, :device_data,
         :discount_amount, :exchange_rate_quote_id, :foreign_retailer,
-        :merchant_account_id, :order_id, :payment_method_nonce, :payment_method_token,
+        :merchant_account_id, :order_id, :payment_method_nonce, :payment_method_token, :processing_merchant_category_code,
         :product_sku, :purchase_order_number, :service_fee_amount, :shared_billing_address_id,
         :shared_customer_id, :shared_payment_method_nonce, :shared_payment_method_token,
         :shared_shipping_address_id, :shipping_address_id, :shipping_amount, :shipping_tax_amount,
-        :ships_from_postal_code, :tax_amount, :tax_exempt, :three_d_secure_authentication_id,:three_d_secure_token, #Deprecated
+        :ships_from_postal_code,:surcharge_amount, :tax_amount, :tax_exempt, :three_d_secure_authentication_id,:three_d_secure_token, #Deprecated
         :transaction_source, :type, :venmo_sdk_payment_method_code, # Deprecated
         :sca_exemption,
         {:apple_pay_card => [:number, :cardholder_name, :cryptogram, :expiration_month, :expiration_year, :eci_indicator]},
@@ -208,7 +220,7 @@ module Braintree
           :billing => AddressGateway._shared_signature
         },
         {:credit_card => [:token, :cardholder_name, :cvv, :expiration_date, :expiration_month, :expiration_year, :number, {:payment_reader_card_details => [:encrypted_card_data, :key_serial_number]}, {:network_tokenization_attributes => [:cryptogram, :ecommerce_indicator, :token_requestor_id]}]},
-        {:customer => [:id, :company, :email, :fax, :first_name, :last_name, :phone, :website]},
+        {:customer => [:id, :company, :email, :fax, :first_name, {:international_phone => [:country_code, :national_number]}, :last_name, :phone, :website]},
         {:custom_fields => :_any_key_},
         {:descriptor => [:name, :phone, :url]},
         {:external_vault => [
@@ -250,6 +262,7 @@ module Braintree
           :store_shipping_address_in_vault,
           :submit_for_settlement,
           {:three_d_secure => [:required]},
+          {:us_bank_account => [:ach_type]},
           {:venmo => [:profile_id]},
           :venmo_sdk_session, # Deprecated
         ]
@@ -278,11 +291,41 @@ module Braintree
             :directory_response,
             :cavv_algorithm,
             :ds_transaction_id,
+            :network,
           ]
         },
         {
           :transfer => [
             :type,
+            {
+              :sender => [
+                :account_reference_number,
+                :account_reference_number_type,
+                :date_of_birth,
+                :first_name,
+                :last_name,
+                :middle_name,
+                :tax_id,
+                {:address => AddressGateway._address_attributes}
+              ]
+            },
+            {
+              :receiver => [
+                :account_reference_number,
+                :account_reference_number_type,
+                :first_name,
+                :last_name,
+                :middle_name,
+                :tax_id,
+                {:address => AddressGateway._address_attributes}
+              ]
+            },
+          ]
+        },
+        {
+          :us_bank_account => [
+            :ach_mandate_text,
+            :ach_mandate_accepted_at,
           ]
         },
       ]
@@ -290,6 +333,7 @@ module Braintree
 
     def self._submit_for_settlement_signature
       [
+        :api_request_key,
         :order_id,
         {:descriptor => [:name, :phone, :url]},
         {:industry => [
@@ -311,6 +355,8 @@ module Braintree
         :tax_amount,
         :tax_exempt,
         :discount_amount,
+        {:shipping => AddressGateway._shared_signature},
+        :shipping_address_id,
         :shipping_amount,
         :shipping_tax_amount,
         :ships_from_postal_code,
@@ -341,8 +387,10 @@ module Braintree
     def self._refund_signature
       [
         :amount,
+        :api_request_key,
         :merchant_account_id,
         :order_id,
+        :surcharge_amount,
       ]
     end
 

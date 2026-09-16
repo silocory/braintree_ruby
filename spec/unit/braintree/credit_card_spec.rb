@@ -51,6 +51,7 @@ describe Braintree::CreditCard do
           :directory_response,
           :cavv_algorithm,
           :ds_transaction_id,
+          :network,
         ]},
         :customer_id,
       ])
@@ -100,6 +101,7 @@ describe Braintree::CreditCard do
           :directory_response,
           :cavv_algorithm,
           :ds_transaction_id,
+          :network,
         ]},
       ])
     end
@@ -290,5 +292,31 @@ describe Braintree::CreditCard do
   it "initializes purchase correctly" do
     card = Braintree::CreditCard._new(:gateway, {:purchase => "No"})
     expect(card.purchase).to eq("No")
+  end
+
+  describe "path traversal" do
+    it "self.delete raises an exception if the token is a traversal segment" do
+      expect do
+        Braintree::CreditCard.delete("../payment_methods/paypal_account/victim_token")
+      end.to raise_error(ArgumentError, "token contains invalid characters")
+    end
+
+    it "self.find raises an exception if the token is a traversal segment" do
+      expect do
+        Braintree::CreditCard.find("../payment_methods/paypal_account/victim_token")
+      end.to raise_error(ArgumentError, "token contains invalid characters")
+    end
+
+    it "self.from_nonce raises an exception if the nonce is a traversal segment" do
+      expect do
+        Braintree::CreditCard.from_nonce("../payment_methods/paypal_account/victim_token")
+      end.to raise_error(ArgumentError, "nonce contains invalid characters")
+    end
+
+    it "self.update raises an exception if the token is a traversal segment" do
+      expect do
+        Braintree::CreditCard.update("../payment_methods/paypal_account/victim_token", :cvv => "123")
+      end.to raise_error(ArgumentError, "token contains invalid characters")
+    end
   end
 end

@@ -1,6 +1,7 @@
 module Braintree
   class TransactionSearch < AdvancedSearch
     text_fields(
+      :acquirer_reference_number,
       :billing_company,
       :billing_country_name,
       :billing_extended_address,
@@ -45,6 +46,7 @@ module Braintree
     equality_fields :credit_card_expiration_date
     partial_match_fields :credit_card_number
 
+    multiple_value_field :ach_type, :allows => Transaction::AchType::All
     multiple_value_field :created_using, :allows => [
       Transaction::CreatedUsing::FullInformation,
       Transaction::CreatedUsing::Token

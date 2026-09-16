@@ -336,7 +336,7 @@ describe Braintree::Transaction do
 
     describe "sca_exemption" do
       context "with a valid request" do
-        it "succeeds" do
+        it "succeeds with a valid sca_exemption request" do
           requested_exemption = "low_value"
           result = Braintree::Transaction.create(
             :type => "sale",
@@ -812,6 +812,22 @@ describe Braintree::Transaction do
         expect(result.transaction.foreign_retailer).to be_nil
       end
 
+      it "returns true for partial_authorization if the processor_response_code is 1004" do
+        result = Braintree::Transaction.create(
+          :type => "sale",
+          :amount => Braintree::Test::TransactionAmounts::PartiallyAuthorized,
+          :accept_partial_authorization => true,
+          :credit_card => {
+            :number => Braintree::Test::CreditCardNumbers::Visa,
+            :expiration_date => "05/2029"
+          },
+        )
+
+        expect(result.success?).to eq(true)
+        expect(result.transaction.processor_response_code).to eq("1004")
+        expect(result.transaction.partially_authorized).to eq(true)
+      end
+
       it "returns nil when foreign_retailer param is nil" do
         result = Braintree::Transaction.create(
           :type => "sale",
@@ -1216,27 +1232,32 @@ describe Braintree::Transaction do
           :client_secret => "client_secret$#{Braintree::Configuration.environment}$integration_client_secret",
           :logger => Logger.new("/dev/null"),
         )
-        result = gateway.merchant.create(
-          :email => "name@email.com",
-          :country_code_alpha3 => "GBR",
-          :payment_methods => ["credit_card", "paypal"],
+
+        code = Braintree::OAuthTestHelper.create_grant(gateway, {
+          :merchant_public_id => "partner_merchant_id",
+          :scope => "read_write"
+        })
+
+        result = gateway.oauth.create_token_from_code(
+          :code => code,
+          :scope => "read_write",
         )
 
-        gateway = Braintree::Gateway.new(
+        merchant_gateway = Braintree::Gateway.new(
           :access_token => result.credentials.access_token,
           :logger => Logger.new("/dev/null"),
         )
 
-        result = gateway.transaction.create(
+        transaction_result = merchant_gateway.transaction.create(
           :type => "sale",
-          :amount => "4000.00",
+          :amount => "5001.00",
           :credit_card => {
             :number => Braintree::Test::CreditCardNumbers::Visa,
             :expiration_date => "05/2020"
           },
         )
-        expect(result.success?).to eq(false)
-        expect(result.transaction.gateway_rejection_reason).to eq(Braintree::Transaction::GatewayRejectionReason::ApplicationIncomplete)
+        expect(transaction_result.success?).to eq(false)
+        expect(transaction_result.transaction.gateway_rejection_reason).to eq(Braintree::Transaction::GatewayRejectionReason::ApplicationIncomplete)
       end
 
       it "exposes the avs gateway rejection reason" do
@@ -1349,7 +1370,7 @@ describe Braintree::Transaction do
         expect(result.transaction.gateway_rejection_reason).to eq(Braintree::Transaction::GatewayRejectionReason::TokenIssuance)
       end
 
-      xit "exposes the excessive_retry gateway rejection reason" do
+      it "exposes the excessive_retry gateway rejection reason" do
         with_duplicate_checking_merchant do
           result = nil
           counter = 0
@@ -1728,7 +1749,7 @@ describe Braintree::Transaction do
         expect(result.transaction.descriptor.url).to eq("ebay.com")
       end
 
-      it "has validation errors if format is invalid" do
+      it "has validation errors when the descriptor name is too long" do
         result = Braintree::Transaction.sale(
           :amount => Braintree::Test::TransactionAmounts::Authorize,
           :credit_card => {
@@ -1736,7 +1757,7 @@ describe Braintree::Transaction do
             :expiration_date => "05/2009"
           },
           :descriptor => {
-            :name => "badcompanyname12*badproduct12",
+            :name => "badcompanyname12*badproductdescription",
             :phone => "%bad4445555",
             :url => "12345678901234"
           },
@@ -2200,8 +2221,8 @@ describe Braintree::Transaction do
         expect(apple_pay_details).not_to be_nil
         expect(apple_pay_details.bin).not_to be_nil
         expect(apple_pay_details.card_type).to eq(Braintree::ApplePayCard::CardType::Visa)
-        expect(apple_pay_details.payment_instrument_name).to eq("Visa 8886")
-        expect(apple_pay_details.source_description).to eq("Visa 8886")
+        expect(apple_pay_details.payment_instrument_name).to match(/\AVisa \d{4}\z/)
+        expect(apple_pay_details.source_description).to match(/\AVisa \d{4}\z/)
         expect(apple_pay_details.expiration_month.to_i).to be > 0
         expect(apple_pay_details.expiration_year.to_i).to be > 0
         expect(apple_pay_details.cardholder_name).not_to be_nil
@@ -2214,6 +2235,37 @@ describe Braintree::Transaction do
         expect(apple_pay_details.commercial).not_to be_nil
         expect(apple_pay_details.payroll).not_to be_nil
         expect(apple_pay_details.product_id).not_to be_nil
+        expect(apple_pay_details.is_device_token).to eq(true)
+      end
+
+      it "can create a transaction with a fake apple pay mpan nonce" do
+        result = Braintree::Transaction.create(
+          :type => "sale",
+          :amount => Braintree::Test::TransactionAmounts::Authorize,
+          :payment_method_nonce => Braintree::Test::Nonce::ApplePayMpan,
+        )
+        expect(result.success?).to eq(true)
+        expect(result.transaction).not_to be_nil
+        apple_pay_details = result.transaction.apple_pay_details
+        expect(apple_pay_details).not_to be_nil
+        expect(apple_pay_details.bin).not_to be_nil
+        expect(apple_pay_details.card_type).to eq(Braintree::ApplePayCard::CardType::Visa)
+        expect(apple_pay_details.payment_instrument_name).to match(/\AVisa \d{4}\z/)
+        expect(apple_pay_details.source_description).to match(/\AVisa \d{4}\z/)
+        expect(apple_pay_details.expiration_month.to_i).to be > 0
+        expect(apple_pay_details.expiration_year.to_i).to be > 0
+        expect(apple_pay_details.cardholder_name).not_to be_nil
+        expect(apple_pay_details.image_url).not_to be_nil
+        expect(apple_pay_details.token).to be_nil
+        expect(apple_pay_details.prepaid).not_to be_nil
+        expect(apple_pay_details.healthcare).not_to be_nil
+        expect(apple_pay_details.debit).not_to be_nil
+        expect(apple_pay_details.durbin_regulated).not_to be_nil
+        expect(apple_pay_details.commercial).not_to be_nil
+        expect(apple_pay_details.payroll).not_to be_nil
+        expect(apple_pay_details.product_id).not_to be_nil
+        expect(apple_pay_details.merchant_token_identifier).not_to be_nil
+        expect(apple_pay_details.is_device_token).to eq(false)
       end
 
       it "can create a vaulted transaction with a fake apple pay nonce" do
@@ -2228,8 +2280,8 @@ describe Braintree::Transaction do
         apple_pay_details = result.transaction.apple_pay_details
         expect(apple_pay_details).not_to be_nil
         expect(apple_pay_details.card_type).to eq(Braintree::ApplePayCard::CardType::Visa)
-        expect(apple_pay_details.payment_instrument_name).to eq("Visa 8886")
-        expect(apple_pay_details.source_description).to eq("Visa 8886")
+        expect(apple_pay_details.payment_instrument_name).to match(/\AVisa \d{4}\z/)
+        expect(apple_pay_details.source_description).to match(/\AVisa \d{4}\z/)
         expect(apple_pay_details.expiration_month.to_i).to be > 0
         expect(apple_pay_details.expiration_year.to_i).to be > 0
         expect(apple_pay_details.cardholder_name).not_to be_nil
@@ -2306,7 +2358,8 @@ describe Braintree::Transaction do
         expect(google_pay_details.virtual_card_type).to eq(Braintree::CreditCard::CardType::MasterCard)
         expect(google_pay_details.last_4).to eq("4444")
         expect(google_pay_details.virtual_card_last_4).to eq("4444")
-        expect(google_pay_details.source_description).to eq("MasterCard 4444")
+        expect(google_pay_details.source_card_last_4).to eq("0005")
+        expect(google_pay_details.source_description).to eq("MasterCard 0005")
         expect(google_pay_details.expiration_month.to_i).to be > 0
         expect(google_pay_details.expiration_year.to_i).to be > 0
         expect(google_pay_details.google_transaction_id).to eq("google_transaction_id")
@@ -2852,6 +2905,106 @@ describe Braintree::Transaction do
         expect(result.transaction.status).to eq(Braintree::Transaction::Status::Authorized)
       end
 
+      it "can create a transaction with a three_d_secure_pass_thru network specified" do
+        result = Braintree::Transaction.create(
+          :type => "sale",
+          :amount => Braintree::Test::TransactionAmounts::Authorize,
+          :credit_card => {
+            :number => Braintree::Test::CreditCardNumbers::Visa,
+            :expiration_date => "05/2009",
+          },
+          :three_d_secure_pass_thru => {
+            :eci_flag => "05",
+            :cavv => "some_cavv",
+            :xid => "some_xid",
+            :three_d_secure_version => "2.2.0",
+            :authentication_response => "Y",
+            :directory_response => "Y",
+            :cavv_algorithm => "2",
+            :network => Braintree::ThreeDSecurePassThru::Network::Visa,
+          },
+        )
+
+        expect(result.success?).to eq(true)
+        expect(result.transaction.status).to eq(Braintree::Transaction::Status::Authorized)
+      end
+
+      it "returns an error for transaction with three_d_secure_pass_thru network when submit_for_settlement is false" do
+        result = Braintree::Transaction.create(
+          :type => "sale",
+          :amount => Braintree::Test::TransactionAmounts::Authorize,
+          :credit_card => {
+            :number => Braintree::Test::CreditCardNumbers::Visa,
+            :expiration_date => "05/2009",
+          },
+          :three_d_secure_pass_thru => {
+            :eci_flag => "05",
+            :cavv => "some_cavv",
+            :xid => "some_xid",
+            :three_d_secure_version => "2.2.0",
+            :authentication_response => "Y",
+            :directory_response => "Y",
+            :cavv_algorithm => "2",
+            :network => Braintree::ThreeDSecurePassThru::Network::Eftpos,
+          },
+          :options => {
+            :submit_for_settlement => false,
+          },
+        )
+
+        expect(result.success?).to eq(false)
+        expect(result.errors.for(:transaction).on(:base)[0].code).to eq(Braintree::ErrorCodes::Transaction::Options::SubmitForSettlementIsNotSupportedForNetwork)
+      end
+
+      it "returns an error for transaction when the three_d_secure_pass_thru network does not support the presentment currency" do
+        result = Braintree::Transaction.create(
+          :type => "sale",
+          :currency_iso_code => "USD",
+          :amount => Braintree::Test::TransactionAmounts::Authorize,
+          :credit_card => {
+            :number => Braintree::Test::CreditCardNumbers::Visa,
+            :expiration_date => "05/2009",
+          },
+          :three_d_secure_pass_thru => {
+            :eci_flag => "05",
+            :cavv => "some_cavv",
+            :xid => "some_xid",
+            :three_d_secure_version => "2.2.0",
+            :authentication_response => "Y",
+            :directory_response => "Y",
+            :cavv_algorithm => "2",
+            :network => Braintree::ThreeDSecurePassThru::Network::Eftpos,
+          },
+        )
+
+        expect(result.success?).to eq(false)
+        expect(result.errors.for(:transaction).for(:three_d_secure_pass_thru).on(:network)[0].code).to eq(Braintree::ErrorCodes::Transaction::ThreeDSecureNetworkDoesNotSupportCurrency)
+      end
+
+      it "returns an error for transaction when the three_d_secure_pass_thru network does not support the merchant account currency" do
+        result = Braintree::Transaction.create(
+          :type => "sale",
+          :amount => Braintree::Test::TransactionAmounts::Authorize,
+          :credit_card => {
+            :number => Braintree::Test::CreditCardNumbers::Visa,
+            :expiration_date => "05/2009",
+          },
+          :three_d_secure_pass_thru => {
+            :eci_flag => "05",
+            :cavv => "some_cavv",
+            :xid => "some_xid",
+            :three_d_secure_version => "2.2.0",
+            :authentication_response => "Y",
+            :directory_response => "Y",
+            :cavv_algorithm => "2",
+            :network => Braintree::ThreeDSecurePassThru::Network::Eftpos,
+          },
+        )
+
+        expect(result.success?).to eq(false)
+        expect(result.errors.for(:transaction).for(:three_d_secure_pass_thru).on(:network)[0].code).to eq(Braintree::ErrorCodes::Transaction::ThreeDSecureNetworkDoesNotSupportMerchantAccountCurrency)
+      end
+
       it "returns an error for transaction with three_d_secure_pass_thru when processor settings do not support 3DS for card type" do
         result = Braintree::Transaction.create(
           :merchant_account_id => "heartland_ma",
@@ -3007,8 +3160,9 @@ describe Braintree::Transaction do
             :ds_transaction_id => "some_ds_id",
           },
         )
+
         expect(result.success?).to eq(false)
-        expect(result.errors.for(:transaction).for(:three_d_secure_pass_thru).on(:cavv_algorithm)[0].code).to eq(Braintree::ErrorCodes::Transaction::ThreeDSecureCavvAlgorithmIsInvalid)
+        expect(result.errors.for(:transaction).for(:credit_card).on(:cvv)[0].code).to eq(Braintree::ErrorCodes::CreditCard::CvvIsRequired)
       end
     end
 
@@ -5079,6 +5233,28 @@ describe Braintree::Transaction do
         transaction = Braintree::Transaction.find(transaction.id)
         expect(transaction.refund_ids.sort).to eq([transaction_1.id, transaction_2.id].sort)
       end
+
+      it "allows partial refund with surcharge_amount" do
+        transaction = Braintree::Transaction.sale!(
+          :amount => Braintree::Test::TransactionAmounts::Authorize,
+          :surcharge_amount => "1.00",
+          :credit_card => {
+            :number => Braintree::Test::CreditCardNumbers::Visa,
+            :expiration_date => "05/2009"
+          },
+          :options => {
+            :submit_for_settlement => true
+          },
+        )
+        config = Braintree::Configuration.instantiate
+        config.http.put("#{config.base_merchant_path}/transactions/#{transaction.id}/settle")
+        transaction = Braintree::Transaction.find(transaction.id)
+
+        result = Braintree::Transaction.refund(transaction.id, :amount => transaction.amount / 2, :surcharge_amount => "0.50")
+        expect(result.success?).to eq(true)
+        expect(result.transaction.type).to eq("credit")
+        expect(result.transaction.surcharge_amount).to eq(BigDecimal("0.50"))
+      end
     end
 
     it "returns a successful result if successful" do
@@ -5117,6 +5293,28 @@ describe Braintree::Transaction do
       result = Braintree::Transaction.refund(transaction.id)
       expect(result.success?).to eq(false)
       expect(result.errors.for(:transaction).on(:base)[0].code).to eq(Braintree::ErrorCodes::Transaction::CannotRefundUnlessSettled)
+    end
+
+    it "accepts surcharge_amount field in refund" do
+      transaction = Braintree::Transaction.sale!(
+        :amount => Braintree::Test::TransactionAmounts::Authorize,
+        :surcharge_amount => "1.00",
+        :credit_card => {
+          :number => Braintree::Test::CreditCardNumbers::Visa,
+          :expiration_date => "05/2009"
+        },
+        :options => {
+          :submit_for_settlement => true
+        },
+      )
+      config = Braintree::Configuration.instantiate
+      config.http.put("#{config.base_merchant_path}/transactions/#{transaction.id}/settle")
+      transaction = Braintree::Transaction.find(transaction.id)
+
+      result = Braintree::Transaction.refund(transaction.id, :surcharge_amount => "1.00")
+      expect(result.success?).to eq(true)
+      expect(result.transaction.type).to eq("credit")
+      expect(result.transaction.surcharge_amount).to eq(BigDecimal("1.00"))
     end
   end
 
@@ -5268,6 +5466,119 @@ describe Braintree::Transaction do
       expect(transaction.shipping_details.phone_number).to eq("122-555-1236")
       expect(transaction.shipping_details.international_phone[:country_code]).to eq("1")
       expect(transaction.shipping_details.international_phone[:national_number]).to eq("3121234567")
+    end
+
+    it "accepts customer international_phone" do
+      result = Braintree::Transaction.sale(
+        :amount => "100.00",
+        :credit_card => {
+          :number => "5105105105105100",
+          :expiration_date => "05/2011",
+        },
+        :customer => {
+          :first_name => "Dan",
+          :last_name => "Smith",
+          :international_phone => {:country_code => "1", :national_number => "3121234567"},
+        },
+      )
+
+      expect(result.success?).to eq(true)
+      transaction = result.transaction
+      expect(transaction.customer_details.first_name).to eq("Dan")
+      expect(transaction.customer_details.last_name).to eq("Smith")
+      expect(transaction.customer_details.international_phone[:country_code]).to eq("1")
+      expect(transaction.customer_details.international_phone[:national_number]).to eq("3121234567")
+    end
+
+    it "returns validation error for an invalid international_phone country code" do
+      result = Braintree::Transaction.sale(
+        :amount => "100.00",
+        :credit_card => {
+          :number => "5105105105105100",
+          :expiration_date => "05/2011",
+        },
+        :customer => {
+          :first_name => "Dan",
+          :last_name => "Smith",
+          :international_phone => {:country_code => "1111", :national_number => "3121234567"},
+        },
+      )
+
+      expect(result.success?).to eq(false)
+      expect(result.errors.map(&:code)).to include(Braintree::ErrorCodes::Customer::InternationalPhoneCountryCodeIsInvalid)
+    end
+
+    it "returns validation error for an invalid international_phone national number" do
+      result = Braintree::Transaction.sale(
+        :amount => "100.00",
+        :credit_card => {
+          :number => "5105105105105100",
+          :expiration_date => "05/2011",
+        },
+        :customer => {
+          :first_name => "Dan",
+          :last_name => "Smith",
+          :international_phone => {:country_code => "1", :national_number => "31212345611111"},
+        },
+      )
+
+      expect(result.success?).to eq(false)
+      expect(result.errors.map(&:code)).to include(Braintree::ErrorCodes::Customer::InternationalPhoneNationalNumberIsInvalid)
+    end
+
+    it "accepts processing_merchant_category_code" do
+      result = Braintree::Transaction.sale(
+        :amount => "100.00",
+        :credit_card => {
+          :number => "4111111111111111",
+          :expiration_date => "05/2028"
+        },
+        :processing_merchant_category_code => "5411",
+      )
+
+      expect(result.success?).to eq(true)
+    end
+
+    it "returns validation error for a too long processing_merchant_category_code" do
+      result = Braintree::Transaction.sale(
+        :amount => "100.00",
+        :credit_card => {
+          :number => "4111111111111111",
+          :expiration_date => "05/2028"
+        },
+        :processing_merchant_category_code => "54111",
+      )
+
+      expect(result.success?).to eq(false)
+      expect(result.errors.for(:transaction).on(:processing_merchant_category_code)[0].code).to eq(Braintree::ErrorCodes::Transaction::ProcessingMerchantCategoryCodeIsInvalid)
+    end
+
+    it "returns validation error for an alphanumeric processing_merchant_category_code" do
+      result = Braintree::Transaction.sale(
+        :amount => "100.00",
+        :credit_card => {
+          :number => "4111111111111111",
+          :expiration_date => "05/2028"
+        },
+        :processing_merchant_category_code => "541A",
+      )
+
+      expect(result.success?).to eq(false)
+      expect(result.errors.for(:transaction).on(:processing_merchant_category_code)[0].code).to eq(Braintree::ErrorCodes::Transaction::ProcessingMerchantCategoryCodeIsInvalid)
+    end
+
+    it "returns validation error for a too short processing_merchant_category_code" do
+      result = Braintree::Transaction.sale(
+        :amount => "100.00",
+        :credit_card => {
+          :number => "4111111111111111",
+          :expiration_date => "05/2028"
+        },
+        :processing_merchant_category_code => "541",
+      )
+
+      expect(result.success?).to eq(false)
+      expect(result.errors.for(:transaction).on(:processing_merchant_category_code)[0].code).to eq(Braintree::ErrorCodes::Transaction::ProcessingMerchantCategoryCodeIsInvalid)
     end
 
     it "allows merchant account to be specified" do
@@ -5741,7 +6052,7 @@ describe Braintree::Transaction do
       end
     end
 
-    xit "Amex Pay with Points" do
+    it "Amex Pay with Points" do
       context "transaction creation" do
         it "succeeds when submit_for_settlement is true" do
           result = Braintree::Transaction.sale(
@@ -5888,7 +6199,7 @@ describe Braintree::Transaction do
     end
 
     context "Pinless debit transaction" do
-      xit "succesfully submits for settlement" do
+      it "successfully submits for settlement" do
         # Flaky test
         result = Braintree::Transaction.sale(
           :amount => Braintree::Test::TransactionAmounts::Authorize,
@@ -6039,6 +6350,90 @@ describe Braintree::Transaction do
       end.to raise_error(ArgumentError)
     end
 
+    it "succeeds when a vaulted shipping_address_id is passed" do
+      customer = Braintree::Customer.create!(
+        :credit_card => {
+          :number => Braintree::Test::CreditCardNumbers::Visa,
+          :expiration_date => "06/2009"
+        },
+      )
+      address = Braintree::Address.create!(
+        :customer_id => customer.id,
+        :street_address => "1 Main St",
+        :locality => "Chicago",
+        :region => "IL",
+        :postal_code => "60601",
+      )
+      transaction = Braintree::Transaction.create(
+        :type => "sale",
+        :amount => Braintree::Test::TransactionAmounts::Authorize,
+        :customer_id => customer.id,
+        :payment_method_token => customer.credit_cards.first.token,
+        :options => {
+          :submit_for_settlement => false
+        },
+      ).transaction
+
+      result = Braintree::Transaction.submit_for_settlement(transaction.id, nil, {
+        :shipping_address_id => address.id,
+      })
+
+      expect(result.success?).to be_truthy
+      expect(result.transaction.shipping_details.street_address).to eq("1 Main St")
+      expect(result.transaction.shipping_details.postal_code).to eq("60601")
+    end
+
+    it "raises an ArgumentError if an invalid shipping sub-key is passed" do
+      transaction = Braintree::Transaction.sale!(
+        :amount => Braintree::Test::TransactionAmounts::Authorize,
+        :credit_card => {
+          :number => Braintree::Test::CreditCardNumbers::Visa,
+          :expiration_date => "06/2009"
+        },
+      )
+
+      expect do
+        Braintree::Transaction.submit_for_settlement(transaction.id, nil, {
+          :shipping => {:invalid_field => "bad"}
+        })
+      end.to raise_error(ArgumentError)
+    end
+
+    it "succeeds when shipping address data is passed" do
+      transaction = Braintree::Transaction.sale!(
+        :amount => Braintree::Test::TransactionAmounts::Authorize,
+        :credit_card => {
+          :number => Braintree::Test::CreditCardNumbers::Visa,
+          :expiration_date => "06/2009"
+        },
+        :options => {
+          :submit_for_settlement => false
+        },
+      )
+
+      result = Braintree::Transaction.submit_for_settlement(transaction.id, nil, {
+        :discount_amount => "12.33",
+        :shipping_amount => "5.00",
+        :ships_from_postal_code => "90210",
+        :shipping => {
+          :first_name => "Andrew",
+          :last_name => "Mason",
+          :company => "Braintree",
+          :street_address => "456 W Main St",
+          :extended_address => "Apt 2F",
+          :locality => "Bartlett",
+          :region => "IL",
+          :postal_code => "60103",
+          :country_name => "United States of America",
+        },
+      })
+
+      expect(result.success?).to be_truthy
+      expect(result.transaction.status).to eq(Braintree::Transaction::Status::SubmittedForSettlement)
+      expect(result.transaction.shipping_details.first_name).to eq("Andrew")
+      expect(result.transaction.shipping_details.postal_code).to eq("60103")
+    end
+
     it "returns an error result if settlement is too large" do
       transaction = Braintree::Transaction.sale!(
         :amount => Braintree::Test::TransactionAmounts::Authorize,
@@ -6116,7 +6511,7 @@ describe Braintree::Transaction do
       expect(leg_errors).to eq([Braintree::ErrorCodes::Transaction::Industry::Leg::TravelFlight::FareAmountCannotBeNegative])
     end
 
-    xit "succeeds when level 2 data is provided" do
+    it "succeeds when level 2 data is provided" do
       result = Braintree::Transaction.sale(
         :amount => Braintree::Test::TransactionAmounts::Authorize,
         :merchant_account_id => SpecHelper::FakeAmexDirectMerchantAccountId,
@@ -6140,7 +6535,7 @@ describe Braintree::Transaction do
       expect(result.transaction.status).to eq(Braintree::Transaction::Status::SubmittedForSettlement)
     end
 
-    xit "succeeds when level 3 data is provided" do
+    it "succeeds when level 3 data is provided" do
       result = Braintree::Transaction.sale(
         :amount => Braintree::Test::TransactionAmounts::Authorize,
         :merchant_account_id => SpecHelper::FakeAmexDirectMerchantAccountId,
@@ -6281,11 +6676,11 @@ describe Braintree::Transaction do
           expect(result.errors.for(:transaction).on(:amount)[0].code).to eq(Braintree::ErrorCodes::Transaction::SettlementAmountIsTooLarge)
         end
 
-        it "returns an error response when the descriptor is invalid" do
+        it "returns an error response when the descriptor name is too long" do
           result = Braintree::Transaction.update_details(transaction.id, {
             :amount => Braintree::Test::TransactionAmounts::Authorize.to_f - 1,
             :descriptor => {
-              :name => "invalid descriptor name",
+              :name => "invalid descriptor name that is way too long",
               :phone => "invalid phone",
               :url => "12345678901234"
             },
@@ -6782,6 +7177,34 @@ describe Braintree::Transaction do
       transaction = Braintree::Transaction.find("transactionwithacquirerreferencenumber")
 
       expect(transaction.acquirer_reference_number).to eq("123456789 091019")
+    end
+
+    it "finds a transaction and returns a payment_account_reference if the transaction has one" do
+      transaction = Braintree::Transaction.find("aft_txn")
+
+      expect(transaction.credit_card_details).not_to be_nil
+      expect(transaction.credit_card_details).to respond_to(:payment_account_reference)
+    end
+
+    it "finds a transaction and returns a payment_account_reference in apple_pay_details if the transaction has one" do
+      transaction = Braintree::Transaction.find("apple_pay_transaction")
+
+      expect(transaction.apple_pay_details).not_to be_nil
+      expect(transaction.apple_pay_details).to respond_to(:payment_account_reference)
+    end
+
+    it "finds a transaction and returns a payment_account_reference in google_pay_details if the transaction has one" do
+      transaction = Braintree::Transaction.find("android_pay_card_transaction")
+
+      expect(transaction.google_pay_details).not_to be_nil
+      expect(transaction.google_pay_details).to respond_to(:payment_account_reference)
+    end
+
+    it "finds a transaction and returns a payment_account_reference in google_pay_details for network token if the transaction has one" do
+      transaction = Braintree::Transaction.find("android_pay_network_token_transaction")
+
+      expect(transaction.google_pay_details).not_to be_nil
+      expect(transaction.google_pay_details).to respond_to(:payment_account_reference)
     end
 
     context "disbursement_details" do
@@ -7654,7 +8077,7 @@ describe Braintree::Transaction do
 
         expect(adjustment_transaction.success?).to eq(false)
         expect(adjustment_transaction.transaction.amount).to eq(BigDecimal("75.50"))
-        expect(adjustment_transaction.errors.for(:authorization_adjustment).on(:amount).first.code).to eq(Braintree::ErrorCodes::Transaction::AdjustmentAmountMustBeGreaterThanZero)
+        expect(adjustment_transaction.errors.for(:transaction).on(:amount).first.code).to eq(Braintree::ErrorCodes::Transaction::AmountMustBeGreaterThanZero)
       end
 
       it "returns failure response, when adjusted amount submitted same as authorized amount" do
@@ -7762,6 +8185,93 @@ describe Braintree::Transaction do
 
       tomorrow = Date.today + 1
       expect(transaction.upcoming_retry_date).to eq(tomorrow.to_s)
+    end
+  end
+
+  describe "mastercard_transaction_link_id" do
+    it "is available in response for mastercard" do
+      result = Braintree::Transaction.create(
+        :type => "sale",
+        :amount => Braintree::Test::TransactionAmounts::Authorize,
+        :accept_partial_authorization => true,
+        :credit_card => {
+          :number => Braintree::Test::CreditCardNumbers::MasterCard,
+          :expiration_date => "05/2029"
+        },
+      )
+
+      expect(result.success?).to eq(true)
+      expect(result.transaction.processor_response_code).to eq("1000")
+      expect(result.transaction.mastercard_transaction_link_id).to match(/\A[a-zA-Z0-9]{22}\z/)
+    end
+
+    it "is not available in response for non mastercard" do
+      result = Braintree::Transaction.create(
+        :type => "sale",
+        :amount => Braintree::Test::TransactionAmounts::Authorize,
+        :accept_partial_authorization => true,
+        :credit_card => {
+          :number => Braintree::Test::CreditCardNumbers::Visa,
+          :expiration_date => "05/2029"
+        },
+      )
+
+      expect(result.success?).to eq(true)
+      expect(result.transaction.processor_response_code).to eq("1000")
+      expect(result.transaction.mastercard_transaction_link_id).to be_nil
+    end
+  end
+
+  context "Surcharge Amount" do
+    it "accepts surcharge_amount field for sale transactions" do
+      result = Braintree::Transaction.create(
+        :type => "sale",
+        :amount => "10.00",
+        :surcharge_amount => "1.00",
+        :credit_card => {
+          :number => Braintree::Test::CreditCardNumbers::Visa,
+          :expiration_date => "05/2029"
+        },
+      )
+
+      expect(result.success?).to eq(true)
+      expect(result.transaction.surcharge_amount).to eq(BigDecimal("1.00"))
+    end
+
+    it "accepts surcharge_amount field for blind credit" do
+      result = Braintree::Transaction.create(
+        :type => "credit",
+        :amount => "10.00",
+        :surcharge_amount => "1.00",
+        :credit_card => {
+          :number => Braintree::Test::CreditCardNumbers::Visa,
+          :expiration_date => "05/2029"
+        },
+      )
+
+      expect(result.success?).to eq(true)
+      expect(result.transaction.surcharge_amount).to eq(BigDecimal("1.00"))
+    end
+  end
+
+  describe "path traversal" do
+    it "self.void rejects a traversal transaction_id and does not void the victim transaction" do
+      victim_transaction = Braintree::Transaction.sale!(
+        :amount => Braintree::Test::TransactionAmounts::Authorize,
+        :credit_card => {
+          :number => Braintree::Test::CreditCardNumbers::Visa,
+          :expiration_date => "05/2009"
+        },
+        :options => {:submit_for_settlement => false},
+      )
+      traversal_id = "../transactions/#{victim_transaction.id}"
+
+      expect do
+        Braintree::Transaction.void(traversal_id)
+      end.to raise_error(ArgumentError, "transaction_id contains invalid characters")
+
+      unaffected_transaction = Braintree::Transaction.find(victim_transaction.id)
+      expect(unaffected_transaction.status).to eq(Braintree::Transaction::Status::Authorized)
     end
   end
 end

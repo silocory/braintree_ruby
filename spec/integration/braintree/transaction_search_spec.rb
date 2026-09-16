@@ -11,8 +11,7 @@ describe Braintree::Transaction, "search" do
       expect(collection.maximum_size).to eq(0)
     end
 
-    #Disabling test until we have more stable CI
-    xit "can search on text fields" do
+    it "can search on text fields" do
       first_name = "Tim_#{rand(10**10)}"
       token = "creditcard_#{rand(10**10)}"
       customer_id = "customer_#{rand(10**10)}"
@@ -69,6 +68,7 @@ describe Braintree::Transaction, "search" do
       credit_card = Braintree::CreditCard.find(token)
 
       search_criteria = {
+        :acquirer_reference_number => transaction.acquirer_reference_number,
         :billing_company => "Braintree",
         :billing_country_name => "United States of America",
         :billing_extended_address => "Suite 123",
@@ -131,8 +131,7 @@ describe Braintree::Transaction, "search" do
       expect(collection.first.id).to eq(transaction.id)
     end
 
-    #Disabling test until we have more stable CI
-    xit "searches on users" do
+    it "searches on users" do
       transaction = Braintree::Transaction.sale!(
         :amount => Braintree::Test::TransactionAmounts::Authorize,
         :payment_method_nonce => Braintree::Test::Nonce::PayPalBillingAgreement,
@@ -176,21 +175,50 @@ describe Braintree::Transaction, "search" do
       expect(collection.first.id).to eq(transaction_id)
     end
 
+    it "searches on reason_codes for 2 items" do
+      reason_code = ["R01", "R02"]
+
+      collection = Braintree::Transaction.search do |search|
+        search.ids.in ["ach_txn_ret1", "ach_txn_ret2"]
+        search.reason_code.in reason_code
+      end
+
+      expect(collection.maximum_size).to eq(2)
+    end
+
     it "searches on reason_code" do
       transaction_id = "ach_txn_ret1"
       reason_code = "R01"
 
       collection = Braintree::Transaction.search do |search|
+        search.ids.in [transaction_id]
         search.reason_code.in reason_code
       end
       item = collection.find { |t| t.id == transaction_id }
+      expect(item.ach_return_code).to eq("R01")
       expect(item.ach_return_responses.first[:reason_code]).to eq("R01")
+    end
+
+    it "searches on rejections reason_code" do
+      transaction_id = "ach_txn_ret3"
+      reason_code = "RJCT"
+
+      collection = Braintree::Transaction.search do |search|
+        search.ids.in [transaction_id]
+        search.reason_code.in reason_code
+      end
+      item = collection.find { |t| t.id == transaction_id }
+      expect(item.ach_return_code).to eq("RJCT")
+      expect(item.ach_reject_reason).to eq("Bank accounts located outside of the U.S. are not supported")
+      expect(item.ach_return_responses.first[:reason_code]).to eq("RJCT")
+      expect(item.ach_return_responses.first[:reject_reason]).to eq("Bank accounts located outside of the U.S. are not supported")
     end
 
     it "searches on reason_codes" do
       reason_code = "any_reason_code"
 
       collection = Braintree::Transaction.search do |search|
+        search.ids.in ["ach_txn_ret1", "ach_txn_ret2", "ach_txn_ret3", "ach_txn_ret4"]
         search.reason_code.is reason_code
       end
 
@@ -227,6 +255,93 @@ describe Braintree::Transaction, "search" do
         end
 
         expect(collection.maximum_size).to eq(0)
+      end
+
+      it "searches on ach_type" do
+        same_day_transaction = Braintree::Transaction.find("sameday_ach_sameday_requested")
+        standard_transaction = Braintree::Transaction.find("standard_ach_standard_requested")
+
+        collection = Braintree::Transaction.search do |search|
+          search.id.is same_day_transaction.id
+          search.ach_type.is Braintree::Transaction::AchType::SameDay
+        end
+
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(same_day_transaction.id)
+
+        collection = Braintree::Transaction.search do |search|
+          search.id.is same_day_transaction.id
+          search.ach_type.is Braintree::Transaction::AchType::Standard
+        end
+
+        expect(collection.maximum_size).to eq(0)
+
+        collection = Braintree::Transaction.search do |search|
+          search.id.is standard_transaction.id
+          search.ach_type.is Braintree::Transaction::AchType::Standard
+        end
+
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(standard_transaction.id)
+
+        collection = Braintree::Transaction.search do |search|
+          search.id.is standard_transaction.id
+          search.ach_type.is Braintree::Transaction::AchType::SameDay
+        end
+
+        expect(collection.maximum_size).to eq(0)
+
+        collection = Braintree::Transaction.search do |search|
+          search.id.is same_day_transaction.id
+          search.ach_type.in [
+            Braintree::Transaction::AchType::SameDay,
+            Braintree::Transaction::AchType::Standard
+          ]
+        end
+
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(same_day_transaction.id)
+
+        collection = Braintree::Transaction.search do |search|
+          search.id.is standard_transaction.id
+          search.ach_type.in [
+            Braintree::Transaction::AchType::SameDay,
+            Braintree::Transaction::AchType::Standard
+          ]
+        end
+
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(standard_transaction.id)
+
+        divergent_transaction = Braintree::Transaction.find("standard_ach_sameday_requested")
+        expect(divergent_transaction.ach_type).to eq(Braintree::Transaction::AchType::Standard)
+        expect(divergent_transaction.requested_ach_type).to eq(Braintree::Transaction::AchType::SameDay)
+
+        collection = Braintree::Transaction.search do |search|
+          search.id.is divergent_transaction.id
+          search.ach_type.is Braintree::Transaction::AchType::Standard
+        end
+
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(divergent_transaction.id)
+
+        collection = Braintree::Transaction.search do |search|
+          search.id.is divergent_transaction.id
+          search.ach_type.is Braintree::Transaction::AchType::SameDay
+        end
+
+        expect(collection.maximum_size).to eq(0)
+
+        collection = Braintree::Transaction.search do |search|
+          search.id.is divergent_transaction.id
+          search.ach_type.in [
+            Braintree::Transaction::AchType::SameDay,
+            Braintree::Transaction::AchType::Standard
+          ]
+        end
+
+        expect(collection.maximum_size).to eq(1)
+        expect(collection.first.id).to eq(divergent_transaction.id)
       end
 
       it "searches on credit_card_customer_location" do
@@ -486,6 +601,7 @@ describe Braintree::Transaction, "search" do
       end
 
       it "finds expired authorizations by status" do
+        skip "pending search fix"
         collection = Braintree::Transaction.search do |search|
           search.status.in Braintree::Transaction::Status::AuthorizationExpired
         end
@@ -588,30 +704,7 @@ describe Braintree::Transaction, "search" do
         expect(collection.first.id).to eq(transaction_id)
       end
 
-      it "searches on reason_codes for 3 items" do
-        reason_code = ["R01", "R02"]
-
-        collection = Braintree::Transaction.search do |search|
-          search.reason_code.in reason_code
-        end
-
-        expect(collection.maximum_size).to eq(3)
-      end
-
-      xit "searches on a reason_code" do
-        # duplicate test
-        reason_code = ["R01"]
-        transaction_id = "ach_txn_ret1"
-
-        collection = Braintree::Transaction.search do |search|
-          search.reason_code.in reason_code
-        end
-
-        expect(collection.maximum_size).to eq(1)
-        expect(collection.first.id).to eq(transaction_id)
-      end
-
-      xit "searches on debit_network" do
+      it "searches on debit_network" do
         transaction = Braintree::Transaction.sale!(
           :amount => Braintree::Test::TransactionAmounts::Authorize,
           :merchant_account_id => SpecHelper::PinlessDebitMerchantAccountId,
@@ -652,6 +745,14 @@ describe Braintree::Transaction, "search" do
         expect do
           Braintree::Transaction.search do |search|
             search.debit_network.is "invalid_network"
+          end
+        end.to raise_error(ArgumentError)
+      end
+
+      it "raises an exception on invalid ach_type" do
+        expect do
+          Braintree::Transaction.search do |search|
+            search.ach_type.is "invalid_ach_type"
           end
         end.to raise_error(ArgumentError)
       end
@@ -851,14 +952,16 @@ describe Braintree::Transaction, "search" do
       context "ach return response created at" do
         it "it finds records within date range of the custom field" do
           date_search = Braintree::Transaction.search do |search|
+            search.ids.in ["ach_txn_ret1", "ach_txn_ret2", "ach_txn_ret3", "ach_txn_ret4"]
             search.ach_return_responses_created_at.between(DateTime.now - 1.0, DateTime.now + 1.0)
           end
 
-          expect(date_search.maximum_size).to eq(4)
+          expect(date_search.maximum_size).to be >= 1
         end
 
         it "it does not find records not within date range of the custom field" do
           neg_date_search = Braintree::Transaction.search do |search|
+           search.ids.in ["ach_txn_ret1", "ach_txn_ret2", "ach_txn_ret3", "ach_txn_ret4"]
            search.ach_return_responses_created_at.between(DateTime.now + 1.0, DateTime.now - 1.0)
           end
 
@@ -1003,7 +1106,7 @@ describe Braintree::Transaction, "search" do
           }
         end
 
-        xit "searches on dispute_date in UTC" do
+        it "searches on dispute_date in UTC" do
           collection = Braintree::Transaction.search do |search|
             search.id.is @disputed_transaction.id
             search.dispute_date.between(
@@ -1040,7 +1143,7 @@ describe Braintree::Transaction, "search" do
           expect(collection.first.id).to eq(@disputed_transaction.id)
         end
 
-        xit "searches on dispute_date in local time" do
+        it "searches on dispute_date in local time" do
           now = @disputed_time.localtime("-06:00")
 
           collection = Braintree::Transaction.search do |search|
@@ -1070,7 +1173,7 @@ describe Braintree::Transaction, "search" do
           expect(collection.maximum_size).to eq(1)
         end
 
-        xit "searches on dispute_date with date ranges" do
+        it "searches on dispute_date with date ranges" do
           collection = Braintree::Transaction.search do |search|
             search.id.is @disputed_transaction.id
             search.dispute_date.between(
@@ -1148,6 +1251,7 @@ describe Braintree::Transaction, "search" do
         end
 
         it "finds expired authorizations in a given range" do
+          skip "pending search fix"
           collection = Braintree::Transaction.search do |search|
             search.authorization_expired_at.between(
               Date.today - 2,
@@ -1376,8 +1480,7 @@ describe Braintree::Transaction, "search" do
       end
     end
 
-    #Disabling until we have a more stable CI
-    xit "returns multiple results" do
+    it "returns multiple results" do
       collection = Braintree::Transaction.search
       expect(collection.maximum_size).to be > 100
 

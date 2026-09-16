@@ -1,11 +1,83 @@
 # Changelog
 
+## 4.41.0
+- Add `preferred_payment_method_token` to `ClientToken.generate`
+- Fix path traversal vulnerability in `CreditCard`, `CreditCardVerification`, `Customer`, `MerchantAccount`, `PayPalAccount`, `PaymentMethod`, `PaymentMethodNonce`, `Plan`, `SepaDirectDebitAccount`, `Subscription`, `Testing`, `Transaction`, `TransactionLineItem`, `UsBankAccount`, and `UsBankAccountVerification` gateways by validating that IDs used in request paths do not contain path separators or relative-path segments
+- Add `ach_type` to transaction search
+- Add `surcharge_amount` to `Transaction.refund`
+
+## 4.40.0
+- Add `EmailFormatIsInvalid (92963)` and `EmailIsTooLong (92964)` validation error codes to `PayPalAccount`
+- Add `network` to `three_d_secure_pass_thru` across `Transaction.sale`, `CreditCard`, `Customer`, `PaymentMethod`, and `CreditCardVerification`, with `ThreeDSecurePassThru::Network` constants (`Eftpos`, `Mastercard`, `Visa`)
+- Fix path traversal vulnerability in `Dispute` and `Address` gateways by validating that IDs used in request paths do not contain path separators or relative-path segments
+
+## 4.39.0
+- Deprecate `debug_id` on `PayPalDetails`, `LocalPaymentDetails`, and `SepaDirectDebitAccountDetails`
+- Add `account_reference_number_type` to sender and receiver in transfer on `Transaction`
+- Add `CannotCloneThirdPartyCofNetworkTokenTransaction (915274)` transaction validation error code
+
+## 4.38.0 
+- Fix `submit_for_settlement` to accept inline `shipping` address fields (`country_code_alpha3`, `postal_code`, etc.) and `shipping_address_id` by adding both to `_submit_for_settlement_signature`
+
+## 4.37.0
+- Add `mastercard_transaction_link_id` to `Transaction` and `CreditCardVerification`
+
+## 4.36.0
+- Add Local Payment Context support with `LocalPaymentContextGateway.create` and `LocalPaymentContextGateway.find` methods
+- Add support for MBWAY and CRYPTO payment types
+- Add `acquirerReferenceNumber` to transaction search object
+- Add `international_phone` to `Customer` in `Transaction`
+- Deprecate merchant create functionality
+- Add `apiRequestKey` (idempotency) for sale, credit, refund, void and settlement operations.
+- Add support for Ruby version 3.4.0, 4.0 and updated rubocop to 1.85.1 for Ruby versions 2.7 and later
+- Add `surcharge_amount` to transaction object
+- Add support for apple pay card verifications
+
+## 4.35.0
+- Add `accept_partial_authorization` to `Transaction Gateway` and `partially_authorized` to `Transaction`
+- Deprecate transactions for `visa_checkout_card` and maintain search functionality
+- Add `ach_type` to `options` -> `us_bank_account` in `Transaction.create`
+- Add `ach_type` and `requested_ach_type` to `Transaction`
+
+## 4.34.0 
+- Re-releasing as 4.34.0
+
+## 4.33.2
+- Version 4.33.2 was meant to be a released as 4.34.0
+- Add `middle_name` to `sender` and `receiver`, and `date_of_birth` to `sender` in transfer on `Transaction`
+- Add `rspec-retry` gem to Gemfile
+- Update `pry` gem to 0.14.0
+- Filter `Braintree::CreditCardVerification.search` to only return credit card verifications
+
+## 4.33.1
+- Bug fix for Nokogiri XML parsing
+
+## 4.33.0
+- Switch from libxml-ruby to Nokogiri to allow use with JRuby. 
+
+## 4.32.0
+- Add `payment_account_reference` to `Transaction::ApplePayDetails`, `Transaction::GooglePayDetails`, `Transaction::CreditCardDetails`, and `CreditCardVerification`
+- Add `processing_merchant_category_code` in `Transaction`
+- Add missing `transfer` validation error codes in `Transaction`
+- Replace libxml-ruby with nokogiri to address JRuby incompatability
+
+## 4.31.0
+
+- Add Bank Account Instant Verification Gateway with JWT creation support
+- Add ACH mandate support to transactions with `ach_mandate_text` and `ach_mandate_accepted_at` fields in `us_bank_account`
+- Add `InstantVerificationAccountValidation` method to `UsBankAccountVerification::VerificationMethod`
+- Add `ach_reject_reason` to `Transaction`
+- Add `sender` and `receiver` to `transfer` in `Transaction`
+- Add `is_device_token` to `ApplePayCard` and `ApplePayDetails`
+
 ## 4.30.0
 
 - Add `upcoming_retry_date` to `Transaction`
 - Add `remaining_file_evidence_storage` to Dispute
 - Add `transfer_type` to Transaction
 - Add `transaction_retried` webhook
+- Add `ach_reject_reason` to `Transaction`
+- Add `sender` and `receiver` to `transfer` in `Transaction`
 
 ## 4.29.0
 

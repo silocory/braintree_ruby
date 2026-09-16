@@ -3,8 +3,9 @@ unless defined?(SPEC_HELPER_LOADED)
   project_root = File.expand_path(File.dirname(__FILE__) + "/..")
   require "rubygems"
   require "bundler/setup"
-  require "libxml"
+
   require "rspec"
+  require "rspec/retry"
   require "pry"
 
   braintree_lib = "#{project_root}/lib"
@@ -42,6 +43,7 @@ unless defined?(SPEC_HELPER_LOADED)
     HiperBRLMerchantAccountId = "hiper_brl"
     NonDefaultMerchantAccountId = "sandbox_credit_card_non_default"
     PinlessDebitMerchantAccountId = "pinless_debit"
+    SuspendedAccount = "suspended_account"
     ThreeDSecureMerchantAccountId = "three_d_secure_merchant_account"
     UsBankMerchantAccountId = "us_bank_merchant_account"
 
@@ -76,6 +78,13 @@ unless defined?(SPEC_HELPER_LOADED)
       :price => BigDecimal("8.88"),
       :billing_day_of_month => 5
     }
+
+    SdwoSupportedTransferTypes = [
+      "account_to_account",
+      "boleto_ticket",
+      "person_to_person",
+      "wallet_transfer"
+    ]
 
     AddOnIncrease10 = "increase_10"
     AddOnIncrease20 = "increase_20"
@@ -113,18 +122,40 @@ unless defined?(SPEC_HELPER_LOADED)
       response[:three_d_secure_verification][:three_d_secure_authentication_id]
     end
 
-    def self.create_merchant(params={})
+    def self.get_merchant(params={})
       gateway = Braintree::Gateway.new(
         :client_id => "client_id$#{Braintree::Configuration.environment}$integration_client_id",
         :client_secret => "client_secret$#{Braintree::Configuration.environment}$integration_client_secret",
         :logger => Logger.new("/dev/null"),
       )
 
-      gateway.merchant.create({
-        :email => "name@email.com",
-        :country_code_alpha3 => "GBR",
-        :payment_methods => ["credit_card", "paypal"],
-      }.merge!(params))
+      code = Braintree::OAuthTestHelper.create_grant(gateway, {
+        :merchant_public_id => "partner_merchant_id",
+        :scope => "read_write"
+      })
+
+      result = gateway.oauth.create_token_from_code(
+        :code => code,
+        :scope => "read_write",
+      )
+
+      merchant_gateway = Braintree::Gateway.new(
+        :access_token => result.credentials.access_token,
+        :logger => Logger.new("/dev/null"),
+      )
+
+      ma_result = merchant_gateway.merchant_account.all
+
+      merchant_obj = OpenStruct.new(
+        :id => "partner_merchant_id",
+        :merchant_accounts => ma_result.merchant_accounts,
+      )
+
+      OpenStruct.new(
+        :success? => true,
+        :credentials => result.credentials,
+        :merchant => merchant_obj,
+      )
     end
 
     def self.stub_time_dot_now(desired_time)
@@ -188,10 +219,10 @@ unless defined?(SPEC_HELPER_LOADED)
       end
 
       def matches?(xml_string)
-        @libxml_parse = Braintree::Xml::Parser.hash_from_xml(xml_string)
-        if @libxml_parse != @expected_hash
-          @results = @libxml_parse
-          @failed_parser = "libxml"
+        @xml_parse = Braintree::Xml::Parser.hash_from_xml(xml_string)
+        if @xml_parse != @expected_hash
+          @results = @xml_parse
+          @failed_parser = "xml"
           false
         else
           true
@@ -228,4 +259,9 @@ RSpec.configure do |config|
   config.mock_with :rspec do |mock|
     mock.syntax = [:should, :expect]
   end
+
+  config.verbose_retry = true
+  config.display_try_failure_messages = true
+  config.default_retry_count = 3
+  config.default_sleep_interval = 1
 end

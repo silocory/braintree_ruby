@@ -29,6 +29,7 @@ module Braintree
     attr_reader :expired
     attr_reader :healthcare
     attr_reader :image_url
+    attr_reader :is_device_token
     attr_reader :issuing_bank
     attr_reader :last_4
     attr_reader :merchant_token_identifier
@@ -43,12 +44,19 @@ module Braintree
     attr_reader :subscriptions
     attr_reader :token
     attr_reader :updated_at
+    attr_reader :verification
 
     def initialize(gateway, attributes)
       @gateway = gateway
       set_instance_variables_from_hash(attributes)
       @billing_address = attributes[:billing_address] ? Address._new(@gateway, attributes[:billing_address]) : nil
       @subscriptions = (@subscriptions || []).map { |subscription_hash| Subscription._new(@gateway, subscription_hash) }
+      @verification = _most_recent_verification(attributes)
+    end
+
+    def _most_recent_verification(attributes)
+      sorted_verifications = (attributes[:verifications] || []).sort_by { |verification| verification[:created_at] }.reverse.first
+      CreditCardVerification._new(sorted_verifications) if sorted_verifications
     end
 
     def default?
